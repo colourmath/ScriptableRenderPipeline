@@ -116,11 +116,22 @@ namespace ColourMath.Rendering
                     // light position for directional lights is: (-direction, 0)
                     Vector4 dir = viewMatrix * light.localToWorld.GetColumn(2);
                     lightPositions[i] = new Vector4(-dir.x, -dir.y, -dir.z, 0);
+                    lightAtten[i] = new Vector4(
+                        -1,
+                        1,
+                        0,
+                        0);
                 }
                 else if (light.lightType == LightType.Point)
                 {
                     Vector4 pos = viewMatrix * light.localToWorld.GetColumn(3);
                     lightPositions[i] = new Vector4(pos.x, pos.y, pos.z, 1);
+                    lightAtten[i] = new Vector4(
+                        -1, 
+                        1, 
+                        25f/(light.range*light.range),
+                        light.range * light.range);
+
                 }
                 else // TODO: Support spot lights at the very least.
                 {

@@ -25,7 +25,12 @@
 #ifndef COLOURMATH_SHADERVARIABLES_INCLUDED
 #define COLOURMATH_SHADERVARIABLES_INCLUDED
 
-// Global lighting data
+// Half-Life 2 Basis: http://www.valvesoftware.com/publications/2004/GDC2004_Half-Life2_Shading.pdf
+#define BASIS_0 float3(	-1.0/sqrt(6.0),		-1.0/sqrt(2.0),		1.0/sqrt(3.0))
+#define BASIS_1 float3(	-1.0/sqrt(6.0),		1.0/sqrt(2.0),		1.0/sqrt(3.0))
+#define BASIS_2 float3(	sqrt(3.0/2.0),		0.0,				1.0/sqrt(3.0))
+
+// Global Lighting Data
 CBUFFER_START(GlobalLightData)
 	// view-space lighting 
     fixed4 globalLightColors[8];
@@ -35,8 +40,9 @@ CBUFFER_START(GlobalLightData)
 CBUFFER_END
 
 // Convenience macros
-#define LIGHT_POS(id) globalLightPositions[id]
-#define LIGHT_COLOR(id) globalLightColors[id]
-#define LIGHT_ATTEN(id) globalLightAtten[id]
+#define LIGHT_POS(id)		globalLightPositions[id]
+#define LIGHT_COLOR(id)		globalLightColors[id]
+#define LIGHT_ATTEN(id)		globalLightAtten[id]
+#define LIGHT_COUNT			globalLightCount.x
 
 #endif // COLOURMATH_SHADERVARIABLES_INCLUDED

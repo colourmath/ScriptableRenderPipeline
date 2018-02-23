@@ -35,17 +35,27 @@
 
 #define V2F_TBN half3x3(NORMALIZE(i.tbn[0].xyz, i.tbn[0].w),NORMALIZE(i.tbn[1].xyz, i.tbn[1].w),NORMALIZE(i.tbn[2].xyz, i.tbn[2].w))
 
-#define LINEAR_ATTEN(atten, sqrDist) FastLinearAtten(sqrDist, atten)
+#define LINEAR_ATTEN(atten, sqrDist) max(0.0, 1.0 / (1.0 + sqrDist*atten))
 
-inline fixed4 TransformDirectionTBN(fixed3 tangent, fixed3 bitangent, fixed3 normal, fixed3 dir)
+inline half3 RadiosityNormalMap(half3 color0, half3 color1, half3 color2, half3 normal)
+{
+	half3 color =
+		color0 * dot( BASIS_0, normal ) +
+		color1 * dot( BASIS_1, normal ) +
+		color2 * dot( BASIS_2, normal );
+	return color;
+}
+
+inline float3 TransformDirectionTBN(float3 tangent, float3 bitangent, float3 normal, float3 dir)
 {
 	fixed4 o;
 	o.x = dot(dir, tangent);
 	o.y = dot(dir, bitangent);
 	o.z = dot(dir, normal);
-	o.w = SQUARED_DIST(o.xyz);
 	return o;
 }
+
+#define TRANSFORM_TBN(tbn,v) TransformDirectionTBN(tbn[0],tbn[1],tbn[2],v)
 
 inline fixed4 Sample3PointAmbient(float3 worldNormal)
 {
@@ -57,10 +67,28 @@ inline fixed4 Sample3PointAmbient(float3 worldNormal)
 	return saturate(o);
 }
 
-inline half FastLinearAtten(half sqrDist, half attenVal)
+inline float LightModel(float nl)
 {
-	half atten = 1.0 / (1.0 + sqrDist*attenVal);
-	return max(atten, 0.0);
+	return nl;
 }
+
+inline void ComputeLight(int index, float3 viewPos, float3x3 tbn, inout float3 color0, inout float3 color1, inout float3 color2)
+{
+	float4 lightPos = LIGHT_POS(index);
+	float3 lightDir = lightPos.xyz - viewPos*lightPos.w;
+
+	float sqrDist = SQUARED_DIST(lightDir);
+	lightDir = NORMALIZE(lightDir,sqrDist);
+	lightDir = TRANSFORM_TBN(tbn,lightDir);
+
+	float atten = LINEAR_ATTEN(LIGHT_ATTEN(index).z, sqrDist);
+
+	// TODO: Inject a lighting model that isn't just Lambert
+	color0 += dot(lightDir, BASIS_0) * LIGHT_COLOR(index) * atten;
+	color1 += dot(lightDir, BASIS_1) * LIGHT_COLOR(index) * atten;
+	color2 += dot(lightDir, BASIS_2) * LIGHT_COLOR(index) * atten;
+}
+
+
 
 #endif // COLOURMATH_CORE_INCLUDED
