@@ -33,18 +33,29 @@ namespace ColourMath.Rendering
 {
     public class TestRenderPipelineInstance : RenderPipeline, IRenderPipeline
     {
-        public struct LightData
+        class LightComparer : IComparer<VisibleLight>
         {
-            //public int pixelAdditionalLightsCount;
-            //public int totalAdditionalLightsCount;
-            //public int mainLightIndex;
-            //public LightShadows shadowMapSampleType;
+            public Vector3 cameraPosition;
+
+            public int Compare(VisibleLight x, VisibleLight y)
+            {
+                // directional lights have infinite distance, so move these to the front
+                if (x.lightType == LightType.Directional && y.lightType != LightType.Directional)
+                    return -1;
+                else if (x.lightType != LightType.Directional && y.lightType == LightType.Directional)
+                    return 1;
+
+                return Mathf.Abs((x.light.transform.position - cameraPosition).sqrMagnitude).CompareTo(
+                    Mathf.Abs((y.light.transform.position - cameraPosition).sqrMagnitude));
+            }
         }
 
         readonly TestRenderPipeline settings;
+        readonly LightComparer lightcomparer;
 
         public TestRenderPipelineInstance(TestRenderPipeline asset) : base()
         {
+            lightcomparer = new LightComparer();
             settings = asset;
         }
 
@@ -52,6 +63,8 @@ namespace ColourMath.Rendering
         {
             foreach (Camera camera in cameras)
             {
+                lightcomparer.cameraPosition = camera.transform.position;
+
                 // Culling
                 ScriptableCullingParameters cullingParams;
                 if (!CullResults.GetCullingParameters(camera, out cullingParams))
@@ -103,9 +116,11 @@ namespace ColourMath.Rendering
             int lightCount = Mathf.Min(lights.Count, maxLights);
 
             // Prepare light data
-            Vector4[] lightColors =         new Vector4[maxLights];
-            Vector4[] lightPositions =      new Vector4[maxLights];
-            Vector4[] lightAtten =          new Vector4[maxLights];
+            Vector4[] lightColors = new Vector4[maxLights];
+            Vector4[] lightPositions = new Vector4[maxLights];
+            Vector4[] lightAtten = new Vector4[maxLights];
+
+            lights.Sort(lightcomparer);
 
             for (int i = 0; i < lightCount; i++)
             {
