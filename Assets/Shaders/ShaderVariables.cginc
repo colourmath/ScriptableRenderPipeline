@@ -45,4 +45,15 @@ CBUFFER_END
 #define LIGHT_ATTEN(id)		globalLightAtten[id]
 #define LIGHT_COUNT			globalLightCount.x
 
+#define RIGHT				float4(1,0,0,0)
+#define UP					float4(0,1,0,0)
+#define FORWARD				float4(0,0,1,0)
+#define ORIGIN				float4(0,0,0,1)
+
+#define RED					half4(1,0,0,1)
+#define GREEN				half4(0,1,0,1)
+#define BLUE				half4(0,0,1,1)
+#define WHITE				half4(1,1,1,1)
+#define BLACK				half4(0,0,0,1)
+
 #endif // COLOURMATH_SHADERVARIABLES_INCLUDED

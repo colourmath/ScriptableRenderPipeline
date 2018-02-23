@@ -37,6 +37,41 @@
 
 #define LINEAR_ATTEN(atten, sqrDist) max(0.0, 1.0 / (1.0 + sqrDist*atten))
 
+// Scalar Powers
+inline half Pow2(half n)
+{
+	return n*n;
+}
+inline half Pow4(half n)
+{
+	n = n*n;	// ^2
+	return n*n; // ^4
+}
+inline half Pow8(half n)
+{
+	n = n*n;	// ^2
+	n = n*n;	// ^4
+	return n*n; // ^8
+}
+inline half Pow16(half n)
+{
+	n = n*n;	// ^2
+	n = n*n;	// ^4
+	n = n*n;	// ^8
+	return n*n; // ^16
+}
+
+// selected by shader feature
+#if defined(SPEC_POW_2)
+	#define POW(n) Pow2(n)
+#elif defined(SPEC_POW_4)
+	#define POW(n) Pow4(n)
+#elif defined(SPEC_POW_8)
+	#define POW(n) Pow8(n)
+#elif defined(SPEC_POW_16)
+	#define POW(n) Pow16(n)
+#endif
+
 inline half3 RadiosityNormalMap(half3 color0, half3 color1, half3 color2, half3 normal)
 {
 	half3 color =
@@ -72,10 +107,21 @@ inline float LightModel(float nl)
 	return nl;
 }
 
-inline void ComputeLight(int index, float3 viewPos, float3x3 tbn, inout float3 color0, inout float3 color1, inout float3 color2)
+inline void ComputeLight(
+	int index, 
+	float3 viewPos, 
+	float3x3 tbn, 
+	inout float3 color0, 
+	inout float3 color1, 
+	inout float3 color2, 
+	inout float3 specColor)
 {
 	float4 lightPos = LIGHT_POS(index);
 	float3 lightDir = lightPos.xyz - viewPos*lightPos.w;
+
+	// View direction is always forward since we're in View-Space, calculate our 'h' vector
+	float3 h = lightDir + FORWARD.xyz;
+	h = NORMALIZE(h, SQUARED_DIST(h));
 
 	float sqrDist = SQUARED_DIST(lightDir);
 	lightDir = NORMALIZE(lightDir,sqrDist);
@@ -84,9 +130,12 @@ inline void ComputeLight(int index, float3 viewPos, float3x3 tbn, inout float3 c
 	float atten = LINEAR_ATTEN(LIGHT_ATTEN(index).z, sqrDist);
 
 	// TODO: Inject a lighting model that isn't just Lambert
-	color0 += dot(lightDir, BASIS_0) * LIGHT_COLOR(index) * atten;
-	color1 += dot(lightDir, BASIS_1) * LIGHT_COLOR(index) * atten;
-	color2 += dot(lightDir, BASIS_2) * LIGHT_COLOR(index) * atten;
+	color0 += max(0.0, dot(lightDir, BASIS_0) * LIGHT_COLOR(index) * atten);
+	color1 += max(0.0, dot(lightDir, BASIS_1) * LIGHT_COLOR(index) * atten);
+	color2 += max(0.0, dot(lightDir, BASIS_2) * LIGHT_COLOR(index) * atten);
+
+	// Gouraud Blinn Specular approximation
+	specColor += Pow16(max(0.0,dot(h, tbn[2]))) * LIGHT_COLOR(index) * _SpecColor * atten;
 }
 
 

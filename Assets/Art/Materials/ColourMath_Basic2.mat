@@ -6,7 +6,7 @@ Material:
   m_ObjectHideFlags: 0
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
-  m_Name: ColourMath_Basic
+  m_Name: ColourMath_Basic 1
   m_Shader: {fileID: 4800000, guid: 19cfaf8e26ab1eb48bef8032a1eaaa92, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
@@ -19,13 +19,13 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _MainTex:
-        m_Texture: {fileID: 2800000, guid: 94e5b367f17dc7848be338c5d10dafdf, type: 3}
-        m_Scale: {x: 1, y: 1}
+        m_Texture: {fileID: 2800000, guid: 2192a7ecdb3220d4f91f9666f8a56c2e, type: 3}
+        m_Scale: {x: 5, y: 5}
         m_Offset: {x: 0, y: 0}
     - _NormalTex:
-        m_Texture: {fileID: 2800000, guid: fe7c5b6de93b3034e982efc993aa7a8d, type: 3}
+        m_Texture: {fileID: 2800000, guid: 8a5c6b4496f287f43987bc3d8c6d047e, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Floats: []
     m_Colors:
-    - _SpecColor: {r: 0.0754717, g: 0.0754717, b: 0.0754717, a: 1}
+    - _SpecColor: {r: 0.3584906, g: 0.3584906, b: 0.3584906, a: 1}
