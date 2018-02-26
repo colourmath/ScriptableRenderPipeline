@@ -22,35 +22,23 @@
 * SOFTWARE.
 **/
 
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
-using UnityEngine.Rendering;
 
 namespace ColourMath.Rendering
 {
-    public static class ShaderLib
+    [ExecuteInEditMode]
+    public class EnvironmentLighting : MonoBehaviour
     {
-        public static class Variables
-        {
-            public static class Global
-            {
-                public const string LIGHTS_COLOR =      "globalLightColors";
-                public const string LIGHTS_POSITION =   "globalLightPositions";
-                public const string LIGHTS_ATTEN =      "globalLightAtten";
-                public const string LIGHTS_COUNT =      "globalLightCount";
+        [Header("Ambient Lighting")]
+        public Color ambientSky;
+        public Color ambientHorizon;
+        public Color ambientGround;
 
-                public const string AMBIENT_SKY =       "ambientLightSky";
-                public const string AMBIENT_HORIZON =   "ambientLightHorizon";
-                public const string AMBIENT_GROUND =    "ambientLightGround";
-            }
-        }
-
-        public static class Passes
+        private void Update()
         {
-            public const string BASE_PASS = "BasePass";
-            public static ShaderPassName Base { get { return new ShaderPassName(BASE_PASS); } }
+            RenderSettings.ambientSkyColor = ambientSky;
+            RenderSettings.ambientEquatorColor = ambientHorizon;
+            RenderSettings.ambientGroundColor = ambientGround;
         }
     }
 }

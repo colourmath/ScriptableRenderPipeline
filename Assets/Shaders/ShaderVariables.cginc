@@ -45,6 +45,16 @@ CBUFFER_END
 #define LIGHT_ATTEN(id)		globalLightAtten[id]
 #define LIGHT_COUNT			globalLightCount.x
 
+CBUFFER_START(AmbientLightData)
+	fixed4 ambientLightSky;
+	fixed4 ambientLightHorizon;
+	fixed4 ambientLightGround;
+CBUFFER_END
+
+#define AMBIENT_SKY			ambientLightSky
+#define AMBIENT_HORIZON		ambientLightHorizon
+#define AMBIENT_GROUND		ambientLightGround
+
 #define RIGHT				float4(1,0,0,0)
 #define UP					float4(0,1,0,0)
 #define FORWARD				float4(0,0,1,0)

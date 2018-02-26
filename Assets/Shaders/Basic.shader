@@ -1,4 +1,6 @@
-﻿/**
+﻿// Upgrade NOTE: replaced tex2D unity_Lightmap with UNITY_SAMPLE_TEX2D
+
+/**
 * MIT License
 * 
 * Copyright (c) 2018 Joseph Pasek
@@ -46,6 +48,7 @@ Shader "ColourMath/Basic"
 			#pragma vertex vert
 			#pragma fragment frag
 			#pragma shader_feature SPEC_POW_2 SPEC_POW_4 SPEC_POW_8 SPEC_POW_16
+			#pragma multi_compile __ LIGHTMAP_ON
 
 			#define NORMAL_ON
 			#define SPECULAR_ON
@@ -57,44 +60,57 @@ Shader "ColourMath/Basic"
 			{
 				float4 vertex : POSITION;
 				float2 uv : TEXCOORD0;
+				float2 uv2 : TEXCOORD1;
 				float3 normal : NORMAL;
 				#if defined(NORMAL_ON)
 					float4 tangent : TANGENT;
 				#endif
+				float4 color : COLOR; // vertex color
 			};
 
+			// TODO: Can still support TEXCOORD 5..7 with Normals.
+			// Other paths can have different options.
 			struct v2f
 			{
 				float4 vertex : SV_POSITION;
-				float2 uv : TEXCOORD0;
+				fixed4 albedo : COLOR0;
+				float4 uv : TEXCOORD0;
 				float3 viewDir : TEXCOORD1;
 				#if defined(NORMAL_ON)
-					half4 color[3] : TEXCOORD2_centroid; // 2..4
-					half4 specColor : COLOR0;
+					half4 color[3] : TEXCOORD2; // 2..4
+					half4 specColor : COLOR1;
 				#else
 					float3 normal : TEXCOORD2;
 				#endif
 
+				// TODO: Cubemap needs world normal
+				// Shadowmap needs 1/2 of a TEXCOORD, do perspective division per-vertex
+				// half4 shadowCoords[2] : TEXCOORD5 // 5..6 we can support up-to 4 shadow maps
 			};
 
 			sampler2D _MainTex;
 			float4 _MainTex_ST;
-			
 
 			v2f vert (a2v v)
 			{
 				v2f o;
 				o.vertex = UnityObjectToClipPos(v.vertex);
-				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+				o.uv.xy = TRANSFORM_TEX(v.uv, _MainTex);
 				float3 viewPos = UnityObjectToViewPos(v.vertex).xyz;
 				float4 normal = float4(v.normal, 0.0);
 
+				o.uv.zw = LightmapTexcoord(v.uv2);
+
+				o.albedo = v.color;
+
 				#if defined(NORMAL_ON)
-					float3 viewTangent = mul(UNITY_MATRIX_IT_MV, v.tangent).xyz;
-					float3 viewNormal = mul(UNITY_MATRIX_IT_MV, normal).xyz;
-					float3 viewBitan = cross(viewNormal, viewTangent) * v.tangent.w;
+					float3 viewTangent =	mul(UNITY_MATRIX_IT_MV, v.tangent).xyz;
+					float3 viewNormal =		mul(UNITY_MATRIX_IT_MV, normal).xyz;
+					float3 viewBitan =		cross(viewNormal, viewTangent) * v.tangent.w;
 
 					float3x3 tbn = float3x3(viewTangent, viewBitan, viewNormal);
+
+					half4 ambient = Sample3PointAmbient(viewNormal);
 
 					half4 color0 = 0;
 					half4 color1 = 0;
@@ -105,7 +121,9 @@ Shader "ColourMath/Basic"
 						ComputeLight(i, viewPos, tbn, color0.xyz, color1.xyz, color2.xyz, specColor.xyz);
 					}
 
-					float3 viewDir = TransformDirectionTBN(tbn[0], tbn[1], tbn[2], viewPos);
+					AmbientContribution(ambient.rgb, color0.rgb, color1.rgb, color2.rgb);
+
+					float3 viewDir = TransformDirectionTBN(tbn[0], tbn[1], tbn[2], FORWARD.xyz);
 					o.viewDir = NORMALIZE(viewDir,SQUARED_DIST(viewDir));
 					
 					o.color[0] = color0;
@@ -124,10 +142,10 @@ Shader "ColourMath/Basic"
 			fixed4 frag (v2f i) : SV_Target
 			{
 				// sample the texture
-				fixed4 col = tex2D(_MainTex, i.uv);
+				fixed4 col = tex2D(_MainTex, i.uv) * i.albedo;
 
 				#if defined(NORMAL_ON)
-					fixed3 n = UnpackNormal(tex2D(_NormalTex, i.uv));
+					fixed3 n = UnpackNormal(tex2D(_NormalTex, i.uv.xy));
 					n = NORMALIZE(n, SQUARED_DIST(n));
 
 					// Radiosity Lambert Term
@@ -136,18 +154,25 @@ Shader "ColourMath/Basic"
 						i.color[1].xyz,
 						i.color[2].xyz,
 						n);
+
+					// Sample per-object Lightmaps
+					#if defined(LIGHTMAP_ON)
+						diffuse += DecodeLightmap(UNITY_SAMPLE_TEX2D(unity_Lightmap, i.uv.zw)).rgb;
+					#endif
+
 					col.rgb *= diffuse;
 					
 					// Radiosity Blinn Specular 
 					fixed3 spec = i.specColor.rgb;
 
-					fixed3 reflDir = i.viewDir - 2.0*dot(n, i.viewDir) * n;
+					// TODO: This vector could probably suffice for the Cubemap lookup as well
+					fixed3 reflDir = i.viewDir.xyz - 2.0*dot(n, i.viewDir.xyz) * n;
 					fixed3 sr;
 					sr.x = POW(dot(BASIS_0, reflDir));
 					sr.y = POW(dot(BASIS_1, reflDir));
 					sr.z = POW(dot(BASIS_2, reflDir));
 					spec *= sr.x + sr.y + sr.z;
-					col.rgb +=  spec * col.a; // For now force texture alpha to be spec map
+					col.rgb += spec * col.a; // For now force texture alpha to be spec map
 				#endif
 
 				return col;

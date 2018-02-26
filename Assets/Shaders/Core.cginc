@@ -92,12 +92,14 @@ inline float3 TransformDirectionTBN(float3 tangent, float3 bitangent, float3 nor
 
 #define TRANSFORM_TBN(tbn,v) TransformDirectionTBN(tbn[0],tbn[1],tbn[2],v)
 
-inline fixed4 Sample3PointAmbient(float3 worldNormal)
+inline fixed4 Sample3PointAmbient(float3 normal)
 {
+	float3 viewWorldUp = float3(UNITY_MATRIX_V[0].y,UNITY_MATRIX_V[1].y,UNITY_MATRIX_V[2].y);
+	
 	fixed4 o;
-	fixed nl = dot(worldNormal, float3(0.0, 1.0, 0.0)); // -1..1
-	o.rgb = lerp(unity_AmbientGround.rgb, unity_AmbientEquator.rgb, min(1.0, 1.0 + nl));
-	o.rgb = lerp(o.rgb, unity_AmbientSky.rgb, max(0.0, nl)).rgb;
+	fixed nl = dot(normal, viewWorldUp); // -1..1
+	o.rgb = lerp(AMBIENT_GROUND.rgb, AMBIENT_HORIZON.rgb, min(1.0, 1.0 + nl));
+	o.rgb = lerp(o.rgb, AMBIENT_SKY.rgb, max(0.0, nl)).rgb;
 	o.a = 1.0;
 	return saturate(o);
 }
@@ -138,6 +140,20 @@ inline void ComputeLight(
 	specColor += Pow16(max(0.0,dot(h, tbn[2]))) * LIGHT_COLOR(index) * _SpecColor * atten;
 }
 
+inline void AmbientContribution(
+	half3 ambient, 
+	inout half3 color0, 
+	inout half3 color1, 
+	inout half3 color2)
+{
+	color0 += ambient;
+	color1 += ambient;
+	color2 += ambient;
+}
 
+float2 LightmapTexcoord(float2 texcoord)
+{
+	return texcoord.xy * unity_LightmapST.xy + unity_LightmapST.zw;
+}
 
 #endif // COLOURMATH_CORE_INCLUDED

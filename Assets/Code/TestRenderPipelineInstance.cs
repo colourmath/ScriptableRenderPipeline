@@ -22,7 +22,6 @@
 * SOFTWARE.
 **/
 
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -61,6 +60,21 @@ namespace ColourMath.Rendering
 
         public override void Render(ScriptableRenderContext context, Camera[] cameras)
         {
+            // Ambient lighting
+            CommandBuffer cmd = CommandBufferPool.Get();
+                cmd.name = "Build Environment CBuffer";
+                cmd.SetGlobalVector(
+                    ShaderLib.Variables.Global.AMBIENT_SKY,     
+                    RenderSettings.ambientSkyColor);
+                cmd.SetGlobalVector(
+                    ShaderLib.Variables.Global.AMBIENT_HORIZON, 
+                    RenderSettings.ambientEquatorColor);
+                cmd.SetGlobalVector(
+                    ShaderLib.Variables.Global.AMBIENT_GROUND,  
+                    RenderSettings.ambientGroundColor);
+                context.ExecuteCommandBuffer(cmd);
+            CommandBufferPool.Release(cmd);
+
             foreach (Camera camera in cameras)
             {
                 lightcomparer.cameraPosition = camera.transform.position;
@@ -80,15 +94,19 @@ namespace ColourMath.Rendering
                 context.SetupCameraProperties(camera);
 
                 // clear depth buffer
-                CommandBuffer cmd = new CommandBuffer() { name = "Clear Framebuffer" };
-                cmd.ClearRenderTarget(true, false, Color.clear);
-                context.ExecuteCommandBuffer(cmd);
-                cmd.Release();
+                cmd = CommandBufferPool.Get();
+                    cmd.name = "Clear Framebuffer";
+                    cmd.ClearRenderTarget(true, false, Color.clear);
+                    context.ExecuteCommandBuffer(cmd);
+                CommandBufferPool.Release(cmd);               
 
                 // Draw opaque objects using BasicPass shader pass
                 DrawRendererSettings settings =
                     new DrawRendererSettings(camera, ShaderLib.Passes.Base);
                 settings.sorting.flags = SortFlags.CommonOpaque;
+                settings.flags = DrawRendererFlags.EnableDynamicBatching;
+                settings.rendererConfiguration = RendererConfiguration.PerObjectLightmaps;
+                // TODO: Circle back when it's time to take on probes
 
                 FilterRenderersSettings filterSettings =
                     new FilterRenderersSettings(true)
@@ -96,6 +114,9 @@ namespace ColourMath.Rendering
                         renderQueueRange = RenderQueueRange.opaque,
                         layerMask = camera.cullingMask
                     };
+
+                // TODO: It would be nice if we could do something like flip a multi-compile flag
+                // for a renderer based on a setting, like receiveShadows.
                 context.DrawRenderers(cull.visibleRenderers, ref settings, filterSettings);
 
                 // Draw skybox
@@ -148,7 +169,7 @@ namespace ColourMath.Rendering
                         light.range * light.range);
 
                 }
-                else // TODO: Support spot lights at the very least.
+                else // TODO: Support spot and area
                 {
                     Debug.LogError(
                         string.Format(
@@ -160,11 +181,19 @@ namespace ColourMath.Rendering
 
             // setup global shader variables to contain all the data computed above
             CommandBuffer cmd = CommandBufferPool.Get();
-            cmd.SetGlobalVectorArray(ShaderLib.Variables.Global.LIGHTS_COLOR, lightColors);
-            cmd.SetGlobalVectorArray(ShaderLib.Variables.Global.LIGHTS_POSITION, lightPositions);
-            cmd.SetGlobalVectorArray(ShaderLib.Variables.Global.LIGHTS_ATTEN, lightAtten);
-            cmd.SetGlobalVector(ShaderLib.Variables.Global.LIGHTS_COUNT, new Vector4(lightCount, 0, 0, 0));
-            context.ExecuteCommandBuffer(cmd);
+                cmd.SetGlobalVectorArray(
+                    ShaderLib.Variables.Global.LIGHTS_COLOR,       
+                    lightColors);
+                cmd.SetGlobalVectorArray(
+                    ShaderLib.Variables.Global.LIGHTS_POSITION,    
+                    lightPositions);
+                cmd.SetGlobalVectorArray(
+                    ShaderLib.Variables.Global.LIGHTS_ATTEN,       
+                    lightAtten);
+                cmd.SetGlobalVector(
+                    ShaderLib.Variables.Global.LIGHTS_COUNT,
+                    new Vector4(lightCount, 0, 0, 0));
+                context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
         }
     }
