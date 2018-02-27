@@ -51,19 +51,38 @@ CBUFFER_START(AmbientLightData)
 	fixed4 ambientLightGround;
 CBUFFER_END
 
-#define AMBIENT_SKY			ambientLightSky
-#define AMBIENT_HORIZON		ambientLightHorizon
-#define AMBIENT_GROUND		ambientLightGround
+// Convenience macros
+#define AMBIENT_SKY				ambientLightSky
+#define AMBIENT_HORIZON			ambientLightHorizon
+#define AMBIENT_GROUND			ambientLightGround
 
-#define RIGHT				float4(1,0,0,0)
-#define UP					float4(0,1,0,0)
-#define FORWARD				float4(0,0,1,0)
-#define ORIGIN				float4(0,0,0,1)
+CBUFFER_START(ShadowData)
+	sampler2D shadowTexture;
+	float4x4 shadowMatrices[4];
+CBUFFER_END
 
-#define RED					half4(1,0,0,1)
-#define GREEN				half4(0,1,0,1)
-#define BLUE				half4(0,0,1,1)
-#define WHITE				half4(1,1,1,1)
-#define BLACK				half4(0,0,0,1)
+static float2 shadowTexOffsets[4] = 
+{
+	float2(0,0),
+	float2(.5,0),
+	float2(.5,.5),
+	float2(0,.5)
+};
+
+// Convenience macros
+#define	SHADOW_TEX				shadowTexture
+#define	SHADOW_MATRIX(id)		shadowMatrices[id]
+#define SHADOW_TEX_OFFSET(id)	shadowTexOffsets[id]	
+
+#define RIGHT					float4(1,0,0,0)
+#define UP						float4(0,1,0,0)
+#define FORWARD					float4(0,0,1,0)
+#define ORIGIN					float4(0,0,0,1)
+
+#define RED						half4(1,0,0,1)
+#define GREEN					half4(0,1,0,1)
+#define BLUE					half4(0,0,1,1)
+#define WHITE					half4(1,1,1,1)
+#define BLACK					half4(0,0,0,1)
 
 #endif // COLOURMATH_SHADERVARIABLES_INCLUDED

@@ -44,6 +44,11 @@ namespace ColourMath.Rendering
                 public const string AMBIENT_SKY =       "ambientLightSky";
                 public const string AMBIENT_HORIZON =   "ambientLightHorizon";
                 public const string AMBIENT_GROUND =    "ambientLightGround";
+
+                public const string SHADOW_TEX =        "shadowTexture";
+                public const string SHADOW_MATRICES =   "shadowMatrices";
+
+                public static int id_ShadowTex;
             }
         }
 

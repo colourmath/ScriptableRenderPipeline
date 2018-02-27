@@ -32,6 +32,10 @@ namespace ColourMath.Rendering
 {
     public class TestRenderPipelineInstance : RenderPipeline, IRenderPipeline
     {
+        /// <summary>
+        /// Sorts the Lights by type, then squared distance to Camera. 
+        /// Directional Lights will always be first.
+        /// </summary>
         class LightComparer : IComparer<VisibleLight>
         {
             public Vector3 cameraPosition;
@@ -52,10 +56,21 @@ namespace ColourMath.Rendering
         readonly TestRenderPipeline settings;
         readonly LightComparer lightcomparer;
 
+        RenderTextureDescriptor shadowMapDescriptor;
+
         public TestRenderPipelineInstance(TestRenderPipeline asset) : base()
         {
             lightcomparer = new LightComparer();
             settings = asset;
+
+            shadowMapDescriptor = new RenderTextureDescriptor(
+                settings.shadowMapSize, 
+                settings.shadowMapSize, 
+                RenderTextureFormat.Depth, 
+                24);
+
+            ShaderLib.Variables.Global.id_ShadowTex = 
+                Shader.PropertyToID(ShaderLib.Variables.Global.SHADOW_TEX);
         }
 
         public override void Render(ScriptableRenderContext context, Camera[] cameras)
@@ -86,8 +101,23 @@ namespace ColourMath.Rendering
 
                 CullResults cull = CullResults.Cull(ref cullingParams, context);
 
+                // Shadow variables
+                int shadowLightCount;
+                Light[] shadowLights;
+
                 List<VisibleLight> visibleLights = cull.visibleLights;
-                SetupLightBuffers(context, visibleLights, camera.worldToCameraMatrix);
+                SetupLightBuffers(
+                    context, 
+                    visibleLights, 
+                    camera.worldToCameraMatrix,
+                    out shadowLightCount,
+                    out shadowLights);
+
+                shadowMapDescriptor.width = this.settings.shadowMapSize;
+                shadowMapDescriptor.height = this.settings.shadowMapSize;
+
+                // Shadow Pass
+                
 
                 // Setup camera for rendering (sets render target, view/projection matrices and other
                 // per-camera built-in shader variables).
@@ -96,6 +126,7 @@ namespace ColourMath.Rendering
                 // clear depth buffer
                 cmd = CommandBufferPool.Get();
                     cmd.name = "Clear Framebuffer";
+                    cmd.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
                     cmd.ClearRenderTarget(true, false, Color.clear);
                     context.ExecuteCommandBuffer(cmd);
                 CommandBufferPool.Release(cmd);               
@@ -131,8 +162,40 @@ namespace ColourMath.Rendering
             }
         }
 
-        private void SetupLightBuffers(ScriptableRenderContext context, List<VisibleLight> lights, Matrix4x4 viewMatrix)
+        private void ShadowPass(
+            ScriptableRenderContext context, 
+            Light shadowLight)
         {
+            CommandBuffer cmd = CommandBufferPool.Get();
+            cmd.name = "Collect Shadows";
+            // Set the Shadow RenderTarget and clear it
+            cmd.GetTemporaryRT(
+                ShaderLib.Variables.Global.id_ShadowTex,
+                shadowMapDescriptor);
+            cmd.ClearRenderTarget(true, true, Color.clear, 1);
+            // For each ShadowCaster, calculate the local shadow matrix.
+            for (int i = 0; i < ShadowCaster.casters.Count; i++)
+            {
+                Matrix4x4 viewMatrix, projectionMatrix;
+                ShadowCaster.casters[i].SetupShadowMatrices(
+                    shadowLight, 
+                    out viewMatrix, 
+                    out projectionMatrix);
+                cmd.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
+                cmd.DrawRenderer(null, null, 0, 0);
+            }
+            context.ExecuteCommandBuffer(cmd);
+            CommandBufferPool.Release(cmd);
+        }
+
+        private void SetupLightBuffers(
+            ScriptableRenderContext context, 
+            List<VisibleLight> lights, 
+            Matrix4x4 viewMatrix,
+            out Light shadowLight)
+        {
+            shadowLight = null;
+
             int maxLights = settings.maxLights;
             int lightCount = Mathf.Min(lights.Count, maxLights);
 
@@ -177,6 +240,10 @@ namespace ColourMath.Rendering
                             light.lightType.ToString()),
                         light.light);
                 }
+
+                if (light.light.shadows != LightShadows.None && shadowLight == null)
+                    shadowLight = light.light;
+                    
             }
 
             // setup global shader variables to contain all the data computed above

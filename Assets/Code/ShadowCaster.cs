@@ -1,0 +1,102 @@
+﻿/**
+* MIT License
+* 
+* Copyright (c) 2018 Joseph Pasek
+* 
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
+* 
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
+* 
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
+**/
+
+using UnityEngine;
+using System.Collections.Generic;
+
+namespace ColourMath.Rendering
+{
+    [ExecuteInEditMode]
+    [RequireComponent(typeof(Renderer))]
+    public class ShadowCaster : MonoBehaviour
+    {
+        static Camera shadowCamera;
+
+        public static List<ShadowCaster> casters 
+            = new List<ShadowCaster>(TestRenderPipeline.MAX_SHADOWMAPS);
+
+        new Renderer renderer;
+        [System.NonSerialized]
+        int index = -1;
+
+        static void SetupShadowCamera(Light l, Renderer r)
+        {
+            if(shadowCamera == null)
+            {
+                shadowCamera = new GameObject().AddComponent<Camera>();
+                shadowCamera.gameObject.hideFlags = HideFlags.HideInHierarchy;
+                shadowCamera.enabled = false;
+            }
+
+            // The light type should dictate the type of projection we're building
+            shadowCamera.orthographic =
+                l.type == LightType.Directional || l.type == LightType.Area;
+
+            // TODO: Calculate this manually, but for now just use a Unity Camera to do the heavy lifting.
+            shadowCamera.transform.position = l.transform.position;
+            shadowCamera.transform.LookAt(r.transform, Vector3.up);
+
+            // We need to get the extremes of the bounds relative to the shadow Camera
+            // then build a tight-fitting frustum to get the absolute best texel-density.
+
+            Vector3 boundsMin = shadowCamera.transform.InverseTransformPoint(r.transform.position + r.bounds.min);
+            Vector3 boundsMax = shadowCamera.transform.InverseTransformPoint(r.transform.position + r.bounds.max);
+
+        }
+
+        private void OnEnable()
+        {
+            // We only allow for a finite number of casters, denoted by a constant value
+            if (casters.Count < TestRenderPipeline.MAX_SHADOWMAPS)
+            {
+                index = casters.Count;
+                casters.Add(this);
+            }
+            else
+                Debug.LogWarning(string.Format(
+                    "There are already the maximum allowed active ShadowCasters in the Scene ({0}). " +
+                    "Remove or Disable one of the other ShadowCasters first before adding another.",
+                    TestRenderPipeline.MAX_SHADOWMAPS));
+        }
+
+        private void OnDisable()
+        {
+            if (casters.Contains(this))
+                casters.Remove(this);
+            index = -1;
+        }
+
+        //private void OnWillRenderObject()
+        //{
+        //
+        //}
+
+        public void SetupShadowMatrices(Light shadowLight, out Matrix4x4 view, out Matrix4x4 proj)
+        {
+            SetupShadowCamera(shadowLight, renderer);
+            view = shadowCamera.worldToCameraMatrix;
+            proj = shadowCamera.projectionMatrix;
+        }
+    }
+}

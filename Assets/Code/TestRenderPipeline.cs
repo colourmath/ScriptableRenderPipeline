@@ -32,6 +32,8 @@ namespace ColourMath.Rendering
     [CreateAssetMenu(fileName ="New RenderPipeline", menuName = "ColourMath/Rendering/Render Pipeline")]
     public class TestRenderPipeline : RenderPipelineAsset
     {
+        public const int MAX_SHADOWMAPS = 4;
+
         [Tooltip("The scale of the Frame Buffer. 1 is native scale.")]
         [Range(.1f,1f)]
         public float renderScale = 1f;
@@ -39,6 +41,8 @@ namespace ColourMath.Rendering
         [Tooltip("Maximum number of real-time lights.")]
         [Range(1,8)]
         public int maxLights = 8;
+
+        public int shadowMapSize = 2048;
 
         protected override IRenderPipeline InternalCreatePipeline()
         {
