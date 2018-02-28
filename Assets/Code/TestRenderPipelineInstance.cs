@@ -101,17 +101,14 @@ namespace ColourMath.Rendering
 
                 CullResults cull = CullResults.Cull(ref cullingParams, context);
 
-                // Shadow variables
-                int shadowLightCount;
-                Light[] shadowLights;
+                Light shadowLight;
 
                 List<VisibleLight> visibleLights = cull.visibleLights;
                 SetupLightBuffers(
                     context, 
                     visibleLights, 
                     camera.worldToCameraMatrix,
-                    out shadowLightCount,
-                    out shadowLights);
+                    out shadowLight);
 
                 shadowMapDescriptor.width = this.settings.shadowMapSize;
                 shadowMapDescriptor.height = this.settings.shadowMapSize;

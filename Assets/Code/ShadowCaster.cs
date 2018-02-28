@@ -54,14 +54,34 @@ namespace ColourMath.Rendering
                 l.type == LightType.Directional || l.type == LightType.Area;
 
             // TODO: Calculate this manually, but for now just use a Unity Camera to do the heavy lifting.
-            shadowCamera.transform.position = l.transform.position;
-            shadowCamera.transform.LookAt(r.transform, Vector3.up);
+            if (shadowCamera.orthographic)
+            {
+                shadowCamera.transform.rotation = l.transform.rotation;
+                shadowCamera.transform.position = l.type == LightType.Area ?
+                    l.transform.position :
+                    r.transform.position - (shadowCamera.transform.forward * r.bounds.extents.magnitude);
+            }
+            else
+            {
+                shadowCamera.transform.position = l.transform.position;
+                shadowCamera.transform.LookAt(r.transform, Vector3.up);
+            }
 
             // We need to get the extremes of the bounds relative to the shadow Camera
             // then build a tight-fitting frustum to get the absolute best texel-density.
 
-            Vector3 boundsMin = shadowCamera.transform.InverseTransformPoint(r.transform.position + r.bounds.min);
-            Vector3 boundsMax = shadowCamera.transform.InverseTransformPoint(r.transform.position + r.bounds.max);
+            Vector3 boundsMin = shadowCamera.transform.InverseTransformPoint(r.transform.TransformPoint(r.bounds.min));
+            Vector3 boundsMax = shadowCamera.transform.InverseTransformPoint(r.transform.TransformPoint(r.bounds.max));
+
+            Vector3 fbl, fbr, ftl, ftr, bbl, bbr, btl, btr;
+            fbl = boundsMin;
+            fbr = new Vector3(boundsMax.x, boundsMin.y, boundsMin.z);
+            ftl = new Vector3(boundsMin.x, boundsMax.y, boundsMin.z);
+            ftr = new Vector3(boundsMax.x, boundsMax.y, boundsMin.z);
+            bbl = new Vector3(boundsMin.x, boundsMin.y, boundsMax.z);
+            bbr = new Vector3(boundsMax.x, boundsMin.y, boundsMax.z);
+            btl = new Vector3(boundsMin.x, boundsMax.y, boundsMax.z);
+            btr = boundsMax;
 
         }
 
