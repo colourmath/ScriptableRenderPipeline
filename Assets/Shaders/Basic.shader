@@ -148,16 +148,17 @@ Shader "ColourMath/Basic"
 					fixed3 n = UnpackNormal(tex2D(_NormalTex, i.uv.xy));
 					n = NORMALIZE(n, SQUARED_DIST(n));
 
-					// Radiosity Lambert Term
-					fixed3 diffuse = RadiosityNormalMap(
-						i.color[0].xyz,
-						i.color[1].xyz,
-						i.color[2].xyz,
-						n);
-
+					fixed3 diffuse;
 					// Sample per-object Lightmaps
 					#if defined(LIGHTMAP_ON)
-						diffuse += DecodeLightmap(UNITY_SAMPLE_TEX2D(unity_Lightmap, i.uv.zw)).rgb;
+						diffuse = DecodeLightmap(UNITY_SAMPLE_TEX2D(unity_Lightmap, i.uv.zw)).rgb;
+					#else
+						// Radiosity Lambert Term
+						diffuse = RadiosityNormalMap(
+							i.color[0].xyz,
+							i.color[1].xyz,
+							i.color[2].xyz,
+							n);
 					#endif
 
 					col.rgb *= diffuse;
