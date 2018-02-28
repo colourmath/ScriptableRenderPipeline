@@ -42,6 +42,11 @@ namespace ColourMath.Rendering
 
             public int Compare(VisibleLight x, VisibleLight y)
             {
+                // baked lights should be at the back as we will filter them out
+                if (x.light.lightmapBakeType == LightmapBakeType.Baked &&
+                    y.light.lightmapBakeType != LightmapBakeType.Baked)
+                    return 1; 
+
                 // directional lights have infinite distance, so move these to the front
                 if (x.lightType == LightType.Directional && y.lightType != LightType.Directional)
                     return -1;
@@ -206,7 +211,17 @@ namespace ColourMath.Rendering
             for (int i = 0; i < lightCount; i++)
             {
                 VisibleLight light = lights[i];
-                lightColors[i] = light.finalColor;
+
+                // baked lights should not make it into our run-time buffer
+                if (light.light.lightmapBakeType == LightmapBakeType.Baked)
+                    continue;
+
+                Color lightColor = light.finalColor;
+                // we will be able to multiply out any light data that isn't a mixed light
+                // this will help better with blending on lightmapped objects
+                lightColor.a = light.light.lightmapBakeType == LightmapBakeType.Mixed ? 1f : 0f;
+                lightColors[i] = lightColor;
+                
                 if (light.lightType == LightType.Directional)
                 {
                     // light position for directional lights is: (-direction, 0)
