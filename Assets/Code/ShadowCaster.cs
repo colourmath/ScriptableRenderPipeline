@@ -36,6 +36,7 @@ namespace ColourMath.Rendering
         public static List<ShadowCaster> casters 
             = new List<ShadowCaster>(TestRenderPipeline.MAX_SHADOWMAPS);
 
+        [System.NonSerialized]
         new Renderer renderer;
         [System.NonSerialized]
         int index = -1;
@@ -45,9 +46,12 @@ namespace ColourMath.Rendering
             if(shadowCamera == null)
             {
                 shadowCamera = new GameObject().AddComponent<Camera>();
-                shadowCamera.gameObject.hideFlags = HideFlags.HideInHierarchy;
+                //shadowCamera.gameObject.hideFlags = HideFlags.HideInHierarchy;
                 shadowCamera.enabled = false;
             }
+
+            shadowCamera.aspect = 1f;
+            shadowCamera.nearClipPlane = 0.01f;
 
             // The light type should dictate the type of projection we're building
             shadowCamera.orthographic =
@@ -83,10 +87,28 @@ namespace ColourMath.Rendering
             btl = new Vector3(boundsMin.x, boundsMax.y, boundsMax.z);
             btr = boundsMax;
 
+            float minX = Mathf.Min(fbl.x, fbr.x, ftl.x, ftr.x, bbl.x, bbr.x, btl.x, btr.x);
+            float maxX = Mathf.Max(fbl.x, fbr.x, ftl.x, ftr.x, bbl.x, bbr.x, btl.x, btr.x);
+            float minY = Mathf.Min(fbl.y, fbr.y, ftl.y, ftr.y, bbl.y, bbr.y, btl.y, btr.y);
+            float maxY = Mathf.Max(fbl.y, fbr.y, ftl.y, ftr.y, bbl.y, bbr.y, btl.y, btr.y);
+            float minZ = Mathf.Min(fbl.z, fbr.z, ftl.z, ftr.z, bbl.z, bbr.z, btl.z, btr.z);
+            float maxZ = Mathf.Max(fbl.z, fbr.z, ftl.z, ftr.z, bbl.z, bbr.z, btl.z, btr.z);
+
+            Vector3 min = new Vector3(minX, minY, minZ);
+            Vector3 max = new Vector3(maxX, maxY, maxZ);
+
+            shadowCamera.farClipPlane = Mathf.Abs(maxZ - minZ) * 2;
+
+            if (shadowCamera.orthographic)
+                shadowCamera.orthographicSize = .5f * (maxY - minY);
+            else
+                shadowCamera.fieldOfView = Vector3.Angle(min, max);
         }
 
         private void OnEnable()
         {
+            renderer = GetComponent<Renderer>();
+
             // We only allow for a finite number of casters, denoted by a constant value
             if (casters.Count < TestRenderPipeline.MAX_SHADOWMAPS)
             {
