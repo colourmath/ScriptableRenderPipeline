@@ -37,11 +37,19 @@ namespace ColourMath.Rendering
             = new List<ShadowCaster>(TestRenderPipeline.MAX_SHADOWMAPS);
 
         [System.NonSerialized]
-        new Renderer renderer;
+        new public Renderer renderer; // GIVE THESE BACK, UNITY!!
         [System.NonSerialized]
         int index = -1;
 
-        static void SetupShadowCamera(Light l, Renderer r)
+        static Rect[] PixelRects = new Rect[4]
+        {
+            new Rect(0f,0f,.5f,.5f),
+            new Rect(.5f,0f,.5f,.5f),
+            new Rect(0f,.5f,.5f,.5f),
+            new Rect(.5f,.5f,.5f,.5f)
+        };
+
+        static void SetupShadowCamera(int index, Light l, Renderer r)
         {
             if(shadowCamera == null)
             {
@@ -74,8 +82,8 @@ namespace ColourMath.Rendering
             // We need to get the extremes of the bounds relative to the shadow Camera
             // then build a tight-fitting frustum to get the absolute best texel-density.
 
-            Vector3 boundsMin = shadowCamera.transform.InverseTransformPoint(r.transform.TransformPoint(r.bounds.min));
-            Vector3 boundsMax = shadowCamera.transform.InverseTransformPoint(r.transform.TransformPoint(r.bounds.max));
+            Vector3 boundsMin = r.bounds.min;
+            Vector3 boundsMax = r.bounds.max;
 
             Vector3 fbl, fbr, ftl, ftr, bbl, bbr, btl, btr;
             fbl = boundsMin;
@@ -87,6 +95,16 @@ namespace ColourMath.Rendering
             btl = new Vector3(boundsMin.x, boundsMax.y, boundsMax.z);
             btr = boundsMax;
 
+            fbl = shadowCamera.transform.InverseTransformPoint(fbl);
+            fbr = shadowCamera.transform.InverseTransformPoint(fbr);
+            ftl = shadowCamera.transform.InverseTransformPoint(ftl);
+            ftr = shadowCamera.transform.InverseTransformPoint(ftr);
+            bbl = shadowCamera.transform.InverseTransformPoint(bbl);
+            bbr = shadowCamera.transform.InverseTransformPoint(bbr);
+            btl = shadowCamera.transform.InverseTransformPoint(btl);
+            btr = shadowCamera.transform.InverseTransformPoint(btr);
+
+            // TODO: Don't GCAlloc
             float minX = Mathf.Min(fbl.x, fbr.x, ftl.x, ftr.x, bbl.x, bbr.x, btl.x, btr.x);
             float maxX = Mathf.Max(fbl.x, fbr.x, ftl.x, ftr.x, bbl.x, bbr.x, btl.x, btr.x);
             float minY = Mathf.Min(fbl.y, fbr.y, ftl.y, ftr.y, bbl.y, bbr.y, btl.y, btr.y);
@@ -97,12 +115,75 @@ namespace ColourMath.Rendering
             Vector3 min = new Vector3(minX, minY, minZ);
             Vector3 max = new Vector3(maxX, maxY, maxZ);
 
-            shadowCamera.farClipPlane = Mathf.Abs(maxZ - minZ) * 2;
+            shadowCamera.farClipPlane = 128.0f;
+
+            //DebugShadowFrustum(minX, minY, minZ, maxX, maxY, maxZ);
 
             if (shadowCamera.orthographic)
                 shadowCamera.orthographicSize = .5f * (maxY - minY);
             else
-                shadowCamera.fieldOfView = Vector3.Angle(min, max);
+                shadowCamera.fieldOfView = Vector3.Angle(max,min);
+
+            shadowCamera.rect = PixelRects[index];
+        }
+
+        static void DebugShadowFrustum(
+            float minX, float minY, float minZ, 
+            float maxX, float maxY, float maxZ)
+        {
+            /*
+              //top
+            Debug.DrawLine( // bottom
+                fbl,//shadowCamera.transform.TransformPoint(fbl),
+                fbr,//shadowCamera.transform.TransformPoint(fbr),
+                Color.blue);
+            Debug.DrawLine( // left
+                fbl,//shadowCamera.transform.TransformPoint(fbl),
+                ftl,//shadowCamera.transform.TransformPoint(ftl),
+                Color.blue);
+            Debug.DrawLine( // top
+                ftl,//shadowCamera.transform.TransformPoint(ftl),
+                ftr,//shadowCamera.transform.TransformPoint(ftr),
+                Color.blue);
+            Debug.DrawLine( // right
+                fbr,//shadowCamera.transform.TransformPoint(fbr),
+                ftr,//shadowCamera.transform.TransformPoint(ftr),
+                Color.blue);
+            //back
+            Debug.DrawLine( // bottom
+                bbl,//shadowCamera.transform.TransformPoint(bbl),
+                bbr,//shadowCamera.transform.TransformPoint(bbr),
+                Color.green);
+            Debug.DrawLine( // left
+                bbl,//shadowCamera.transform.TransformPoint(bbl),
+                btl,// shadowCamera.transform.TransformPoint(btl),
+                Color.green);
+            Debug.DrawLine( // top
+                btl,//shadowCamera.transform.TransformPoint(btl),
+                btr,//shadowCamera.transform.TransformPoint(btr),
+                Color.green);
+            Debug.DrawLine( // right
+                bbr,//shadowCamera.transform.TransformPoint(bbr),
+                btr,//shadowCamera.transform.TransformPoint(btr),
+                Color.green);
+             */
+
+            Debug.DrawLine( // bottom
+                shadowCamera.transform.TransformPoint(new Vector3(minX, minY, minZ)),
+                shadowCamera.transform.TransformPoint(new Vector3(maxX, minY, minZ)),
+                Color.yellow);
+            Debug.DrawLine( // left
+                shadowCamera.transform.TransformPoint(new Vector3(minX, minY, minZ)),
+                shadowCamera.transform.TransformPoint(new Vector3(minX, maxY, minZ)),
+                Color.yellow);
+            Debug.DrawLine( // top
+                shadowCamera.transform.TransformPoint(new Vector3(minX, maxY, minZ)),
+                shadowCamera.transform.TransformPoint(new Vector3(maxX, maxY, minZ)),
+                Color.yellow);
+            Debug.DrawLine( // right
+                shadowCamera.transform.TransformPoint(new Vector3(maxX, minY, minZ)),
+                shadowCamera.transform.TransformPoint(new Vector3(maxX, maxY, minZ)),
+                Color.yellow);
         }
 
         private void OnEnable()
@@ -134,9 +215,9 @@ namespace ColourMath.Rendering
         //
         //}
 
-        public void SetupShadowMatrices(Light shadowLight, out Matrix4x4 view, out Matrix4x4 proj)
+        public void SetupShadowMatrices(int index, Light shadowLight, out Matrix4x4 view, out Matrix4x4 proj)
         {
-            SetupShadowCamera(shadowLight, renderer);
+            SetupShadowCamera(index, shadowLight, renderer);
             view = shadowCamera.worldToCameraMatrix;
             proj = shadowCamera.projectionMatrix;
         }

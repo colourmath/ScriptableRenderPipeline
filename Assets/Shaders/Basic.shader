@@ -83,9 +83,10 @@ Shader "ColourMath/Basic"
 					float3 normal : TEXCOORD2;
 				#endif
 
+
 				// TODO: Cubemap needs world normal
 				// Shadowmap needs 1/2 of a TEXCOORD, do perspective division per-vertex
-				// half4 shadowCoords[2] : TEXCOORD5 // 5..6 we can support up-to 4 shadow maps
+				half4 shadowCoords[2] : TEXCOORD5; // 5..6 we can support up-to 4 shadow maps
 			};
 
 			sampler2D _MainTex;
@@ -95,6 +96,18 @@ Shader "ColourMath/Basic"
 			{
 				v2f o;
 				o.vertex = UnityObjectToClipPos(v.vertex);
+				float4 worldPos = mul(unity_ObjectToWorld, v.vertex);
+
+				//for(int i = 0; i < SHADOW_COUNT; i++)
+				//{
+					float4 shadowCoord = mul(shadowMatrices[0],worldPos);
+					o.shadowCoords[0].xy = shadowCoord.xy / shadowCoord.w;
+					o.shadowCoords[0].xy = o.shadowCoords[0].xy * .5 + .5;
+				//}
+					o.shadowCoords[0].zw = 0;
+					o.shadowCoords[1].xy = 0;
+					o.shadowCoords[1].zw = 0;
+
 				o.uv.xy = TRANSFORM_TEX(v.uv, _MainTex);
 				float3 viewPos = UnityObjectToViewPos(v.vertex).xyz;
 				float4 normal = float4(v.normal, 0.0);
@@ -143,6 +156,9 @@ Shader "ColourMath/Basic"
 			{
 				// sample the texture
 				fixed4 col = tex2D(_MainTex, i.uv) * i.albedo;
+
+				fixed shadow = tex2D(shadowTexture, i.shadowCoords[0].xy).r;
+				col.rgb *= 1-shadow;
 
 				#if defined(NORMAL_ON)
 					fixed3 n = UnpackNormal(tex2D(_NormalTex, i.uv.xy));

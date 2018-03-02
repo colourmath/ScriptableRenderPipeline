@@ -63,6 +63,9 @@ namespace ColourMath.Rendering
 
         RenderTextureDescriptor shadowMapDescriptor;
 
+        Material shadowMaterial;
+        RenderTargetIdentifier shadowRTID;
+
         public TestRenderPipelineInstance(TestRenderPipeline asset) : base()
         {
             lightcomparer = new LightComparer();
@@ -76,6 +79,9 @@ namespace ColourMath.Rendering
 
             ShaderLib.Variables.Global.id_ShadowTex = 
                 Shader.PropertyToID(ShaderLib.Variables.Global.SHADOW_TEX);
+
+            shadowRTID = new RenderTargetIdentifier(ShaderLib.Variables.Global.id_ShadowTex);
+            shadowMaterial = new Material(Shader.Find("Hidden/Dynamic Shadow"));
         }
 
         public override void Render(ScriptableRenderContext context, Camera[] cameras)
@@ -119,7 +125,8 @@ namespace ColourMath.Rendering
                 shadowMapDescriptor.height = this.settings.shadowMapSize;
 
                 // Shadow Pass
-                
+                if(shadowLight != null)
+                    ShadowPass(context, shadowLight);
 
                 // Setup camera for rendering (sets render target, view/projection matrices and other
                 // per-camera built-in shader variables).
@@ -141,6 +148,7 @@ namespace ColourMath.Rendering
                 settings.rendererConfiguration = RendererConfiguration.PerObjectLightmaps;
                 // TODO: Circle back when it's time to take on probes
 
+                // It would be nice to filter out things based on a scriptable heuristic.
                 FilterRenderersSettings filterSettings =
                     new FilterRenderersSettings(true)
                     {
@@ -174,18 +182,35 @@ namespace ColourMath.Rendering
             cmd.GetTemporaryRT(
                 ShaderLib.Variables.Global.id_ShadowTex,
                 shadowMapDescriptor);
+            cmd.SetRenderTarget(shadowRTID);
             cmd.ClearRenderTarget(true, true, Color.clear, 1);
+
+            Matrix4x4[] shadowMatrices = new Matrix4x4[TestRenderPipeline.MAX_SHADOWMAPS];
             // For each ShadowCaster, calculate the local shadow matrix.
             for (int i = 0; i < ShadowCaster.casters.Count; i++)
             {
                 Matrix4x4 viewMatrix, projectionMatrix;
                 ShadowCaster.casters[i].SetupShadowMatrices(
+                    i,
                     shadowLight, 
                     out viewMatrix, 
                     out projectionMatrix);
                 cmd.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
-                cmd.DrawRenderer(null, null, 0, 0);
+                cmd.DrawRenderer(
+                    ShadowCaster.casters[i].renderer, 
+                    shadowMaterial, 
+                    0, 
+                    ShaderLib.Passes.SHADOW_PASS_ID);
+                shadowMatrices[i] = projectionMatrix * viewMatrix;
             }
+
+            cmd.SetGlobalFloat(
+                ShaderLib.Variables.Global.SHADOW_COUNT, 
+                ShadowCaster.casters.Count);
+            cmd.SetGlobalMatrixArray(
+                ShaderLib.Variables.Global.SHADOW_MATRICES,
+                shadowMatrices);
+
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
         }

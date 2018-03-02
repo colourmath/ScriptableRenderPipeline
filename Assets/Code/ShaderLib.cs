@@ -47,6 +47,7 @@ namespace ColourMath.Rendering
 
                 public const string SHADOW_TEX =        "shadowTexture";
                 public const string SHADOW_MATRICES =   "shadowMatrices";
+                public const string SHADOW_COUNT =      "shadowCount";
 
                 public static int id_ShadowTex;
             }
@@ -56,6 +57,8 @@ namespace ColourMath.Rendering
         {
             public const string BASE_PASS = "BasePass";
             public static ShaderPassName Base { get { return new ShaderPassName(BASE_PASS); } }
+
+            public const int SHADOW_PASS_ID = 0;
         }
     }
 }
