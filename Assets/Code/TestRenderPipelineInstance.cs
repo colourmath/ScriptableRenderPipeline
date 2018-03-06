@@ -64,7 +64,9 @@ namespace ColourMath.Rendering
         RenderTextureDescriptor shadowMapDescriptor;
 
         Material shadowMaterial;
+        RenderTexture shadowRT;
         RenderTargetIdentifier shadowRTID;
+        RenderTargetIdentifier tempRTID;
 
         public TestRenderPipelineInstance(TestRenderPipeline asset) : base()
         {
@@ -72,15 +74,26 @@ namespace ColourMath.Rendering
             settings = asset;
 
             shadowMapDescriptor = new RenderTextureDescriptor(
-                settings.shadowMapSize, 
-                settings.shadowMapSize, 
-                RenderTextureFormat.Depth, 
-                24);
+                settings.shadowMapSize,
+                settings.shadowMapSize,
+                RenderTextureFormat.RGHalf,
+                24)
+            {
+                dimension = TextureDimension.Tex2D,
+                volumeDepth = 1,
+                msaaSamples = 1
+            };
+
+            shadowRT = new RenderTexture(shadowMapDescriptor) { name = "Shadow Depth Tex" };
 
             ShaderLib.Variables.Global.id_ShadowTex = 
                 Shader.PropertyToID(ShaderLib.Variables.Global.SHADOW_TEX);
+            ShaderLib.Variables.Global.id_TempTex =
+                Shader.PropertyToID(ShaderLib.Variables.Global.TEMP_TEX);
 
             shadowRTID = new RenderTargetIdentifier(ShaderLib.Variables.Global.id_ShadowTex);
+            tempRTID = new RenderTargetIdentifier(ShaderLib.Variables.Global.id_TempTex);
+
             shadowMaterial = new Material(Shader.Find("Hidden/Dynamic Shadow"));
         }
 
@@ -156,7 +169,10 @@ namespace ColourMath.Rendering
                         layerMask = camera.cullingMask
                     };
 
-                // TODO: It would be nice if we could do something like flip a multi-compile flag
+                
+                // TODO: Render baked objects with Mixed RT Lighting as a different Pass.
+
+                // It would be nice if we could do something like flip a multi-compile flag
                 // for a renderer based on a setting, like receiveShadows.
                 context.DrawRenderers(cull.visibleRenderers, ref settings, filterSettings);
 
@@ -181,20 +197,43 @@ namespace ColourMath.Rendering
             // Set the Shadow RenderTarget and clear it
             cmd.GetTemporaryRT(
                 ShaderLib.Variables.Global.id_ShadowTex,
-                shadowMapDescriptor);
+                shadowMapDescriptor, 
+                FilterMode.Bilinear);
+
+            //cmd.GetTemporaryRT(
+            //    ShaderLib.Variables.Global.id_TempTex,
+            //    settings.shadowMapSize,
+            //    settings.shadowMapSize,
+            //    24,
+            //    FilterMode.Bilinear,
+            //    RenderTextureFormat.Default);
+            bool isOrtho = 
+                shadowLight.type == LightType.Directional || 
+                shadowLight.type == LightType.Area;
+
             cmd.SetRenderTarget(shadowRTID);
-            cmd.ClearRenderTarget(true, true, Color.clear, 1);
+            cmd.ClearRenderTarget(true, false, Color.clear, 1);
+
+            if (isOrtho)
+                cmd.EnableShaderKeyword(ShaderLib.Keywords.SHADOW_PROJECTION_ORTHO);
+            else
+                cmd.DisableShaderKeyword(ShaderLib.Keywords.SHADOW_PROJECTION_ORTHO);
+
+            float[] shadowDistances =   new float[TestRenderPipeline.MAX_SHADOWMAPS];
+            float[] shadowBiases =      new float[TestRenderPipeline.MAX_SHADOWMAPS];
 
             Matrix4x4[] shadowMatrices = new Matrix4x4[TestRenderPipeline.MAX_SHADOWMAPS];
             // For each ShadowCaster, calculate the local shadow matrix.
             for (int i = 0; i < ShadowCaster.casters.Count; i++)
             {
                 Matrix4x4 viewMatrix, projectionMatrix;
+                float distance;
                 ShadowCaster.casters[i].SetupShadowMatrices(
                     i,
                     shadowLight, 
                     out viewMatrix, 
-                    out projectionMatrix);
+                    out projectionMatrix,
+                    out distance);
                 cmd.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
                 cmd.DrawRenderer(
                     ShadowCaster.casters[i].renderer, 
@@ -202,15 +241,32 @@ namespace ColourMath.Rendering
                     0, 
                     ShaderLib.Passes.SHADOW_PASS_ID);
                 shadowMatrices[i] = projectionMatrix * viewMatrix;
+                shadowDistances[i] = isOrtho ? 0 : distance;
+                shadowBiases[i] = shadowLight.shadowBias;
             }
-
+            cmd.SetGlobalFloat(
+                ShaderLib.Variables.Global.SHADOW_INTENSITY,
+                shadowLight.shadowStrength);
+            cmd.SetGlobalVector(
+                ShaderLib.Variables.Global.SHADOW_BIASES,
+                new Vector4(
+                    shadowBiases[0],
+                    shadowBiases[1],
+                    shadowBiases[2],
+                    shadowBiases[3]));
+            cmd.SetGlobalVector(
+                ShaderLib.Variables.Global.SHADOW_DISTANCES,
+                new Vector4(
+                    shadowDistances[0], 
+                    shadowDistances[1], 
+                    shadowDistances[2], 
+                    shadowDistances[3]));
             cmd.SetGlobalFloat(
                 ShaderLib.Variables.Global.SHADOW_COUNT, 
                 ShadowCaster.casters.Count);
             cmd.SetGlobalMatrixArray(
                 ShaderLib.Variables.Global.SHADOW_MATRICES,
                 shadowMatrices);
-
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
         }
@@ -222,9 +278,10 @@ namespace ColourMath.Rendering
             out Light shadowLight)
         {
             shadowLight = null;
+            int shadowLightID = -1;
 
             int maxLights = settings.maxLights;
-            int lightCount = Mathf.Min(lights.Count, maxLights);
+            int lightCount = 0;
 
             // Prepare light data
             Vector4[] lightColors = new Vector4[maxLights];
@@ -233,8 +290,11 @@ namespace ColourMath.Rendering
 
             lights.Sort(lightcomparer);
 
-            for (int i = 0; i < lightCount; i++)
+            for (int i = 0; i < lights.Count; i++)
             {
+                if(lightCount == maxLights)
+                    break;
+
                 VisibleLight light = lights[i];
 
                 // baked lights should not make it into our run-time buffer
@@ -245,14 +305,14 @@ namespace ColourMath.Rendering
                 // we will be able to multiply out any light data that isn't a mixed light
                 // this will help better with blending on lightmapped objects
                 lightColor.a = light.light.lightmapBakeType == LightmapBakeType.Mixed ? 1f : 0f;
-                lightColors[i] = lightColor;
+                lightColors[lightCount] = lightColor;
                 
                 if (light.lightType == LightType.Directional)
                 {
                     // light position for directional lights is: (-direction, 0)
                     Vector4 dir = viewMatrix * light.localToWorld.GetColumn(2);
-                    lightPositions[i] = new Vector4(-dir.x, -dir.y, -dir.z, 0);
-                    lightAtten[i] = new Vector4(
+                    lightPositions[lightCount] = new Vector4(-dir.x, -dir.y, -dir.z, 0);
+                    lightAtten[lightCount] = new Vector4(
                         -1,
                         1,
                         0,
@@ -261,8 +321,8 @@ namespace ColourMath.Rendering
                 else if (light.lightType == LightType.Point)
                 {
                     Vector4 pos = viewMatrix * light.localToWorld.GetColumn(3);
-                    lightPositions[i] = new Vector4(pos.x, pos.y, pos.z, 1);
-                    lightAtten[i] = new Vector4(
+                    lightPositions[lightCount] = new Vector4(pos.x, pos.y, pos.z, 1);
+                    lightAtten[lightCount] = new Vector4(
                         -1, 
                         1, 
                         25f/(light.range*light.range),
@@ -278,10 +338,14 @@ namespace ColourMath.Rendering
                         light.light);
                 }
 
-                if (light.light.shadows != LightShadows.None && shadowLight == null)
-                    shadowLight = light.light;
-                    
+                if (light.light.shadows != LightShadows.None && shadowLightID < 0)
+                    shadowLightID = i;
+
+                lightCount++;
             }
+
+            if (shadowLightID >= 0)
+                shadowLight = lights[shadowLightID].light;
 
             // setup global shader variables to contain all the data computed above
             CommandBuffer cmd = CommandBufferPool.Get();

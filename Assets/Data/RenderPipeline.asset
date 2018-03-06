@@ -11,3 +11,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 524e391acc0fad640b88ca9720f3c284, type: 3}
   m_Name: RenderPipeline
   m_EditorClassIdentifier: 
+  renderScale: 1
+  maxLights: 8
+  shadowMapSize: 1024

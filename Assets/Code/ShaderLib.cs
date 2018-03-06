@@ -36,20 +36,38 @@ namespace ColourMath.Rendering
         {
             public static class Global
             {
+                // Light CBuffer
                 public const string LIGHTS_COLOR =      "globalLightColors";
                 public const string LIGHTS_POSITION =   "globalLightPositions";
                 public const string LIGHTS_ATTEN =      "globalLightAtten";
                 public const string LIGHTS_COUNT =      "globalLightCount";
 
+                // Ambient CBuffer
                 public const string AMBIENT_SKY =       "ambientLightSky";
                 public const string AMBIENT_HORIZON =   "ambientLightHorizon";
                 public const string AMBIENT_GROUND =    "ambientLightGround";
 
+                // Shadow CBuffer
                 public const string SHADOW_TEX =        "shadowTexture";
                 public const string SHADOW_MATRICES =   "shadowMatrices";
                 public const string SHADOW_COUNT =      "shadowCount";
+                public const string SHADOW_DISTANCES =  "shadowDistances";
+                public const string SHADOW_BIASES =     "shadowBiases";
+                public const string SHADOW_INTENSITY =  "shadowIntensity";
+
+
+                public const string SHADOW_PROJ =       "shadowMatrix";
 
                 public static int id_ShadowTex;
+
+                public const string TEMP_TEX =        "_TempTex";
+                public static int id_TempTex;
+
+            }
+
+            public static class Renderer
+            {
+                public const string SHADOW_INDEX = "shadowIndex";
             }
         }
 
@@ -59,6 +77,11 @@ namespace ColourMath.Rendering
             public static ShaderPassName Base { get { return new ShaderPassName(BASE_PASS); } }
 
             public const int SHADOW_PASS_ID = 0;
+        }
+
+        public static class Keywords
+        {
+            public const string SHADOW_PROJECTION_ORTHO = "SHADOW_PROJECTION_ORTHO";
         }
     }
 }

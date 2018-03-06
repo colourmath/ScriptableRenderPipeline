@@ -31,6 +31,12 @@ namespace ColourMath.Rendering
     [RequireComponent(typeof(Renderer))]
     public class ShadowCaster : MonoBehaviour
     {
+        const int NO_SHADOW_INDEX = 0;
+        const int SHADOW_INDEX_0 = 1 << 0;
+        const int SHADOW_INDEX_1 = 1 << 1;
+        const int SHADOW_INDEX_2 = 1 << 2;
+        const int SHADOW_INDEX_3 = 1 << 3;
+
         static Camera shadowCamera;
 
         public static List<ShadowCaster> casters 
@@ -41,6 +47,8 @@ namespace ColourMath.Rendering
         [System.NonSerialized]
         int index = -1;
 
+        int casterID;
+
         static Rect[] PixelRects = new Rect[4]
         {
             new Rect(0f,0f,.5f,.5f),
@@ -48,6 +56,8 @@ namespace ColourMath.Rendering
             new Rect(0f,.5f,.5f,.5f),
             new Rect(.5f,.5f,.5f,.5f)
         };
+
+        MaterialPropertyBlock mpb;
 
         static void SetupShadowCamera(int index, Light l, Renderer r)
         {
@@ -115,7 +125,7 @@ namespace ColourMath.Rendering
             Vector3 min = new Vector3(minX, minY, minZ);
             Vector3 max = new Vector3(maxX, maxY, maxZ);
 
-            shadowCamera.farClipPlane = 128.0f;
+            shadowCamera.farClipPlane = l.type == LightType.Directional ? maxZ : l.range;
 
             //DebugShadowFrustum(minX, minY, minZ, maxX, maxY, maxZ);
 
@@ -190,11 +200,18 @@ namespace ColourMath.Rendering
         {
             renderer = GetComponent<Renderer>();
 
+            mpb = new MaterialPropertyBlock();
             // We only allow for a finite number of casters, denoted by a constant value
             if (casters.Count < TestRenderPipeline.MAX_SHADOWMAPS)
             {
                 index = casters.Count;
+                casterID = 1 << index;
                 casters.Add(this);
+                renderer.GetPropertyBlock(mpb);
+                mpb.SetFloat(
+                    ShaderLib.Variables.Renderer.SHADOW_INDEX, 
+                    casterID);
+                renderer.SetPropertyBlock(mpb);
             }
             else
                 Debug.LogWarning(string.Format(
@@ -208,18 +225,25 @@ namespace ColourMath.Rendering
             if (casters.Contains(this))
                 casters.Remove(this);
             index = -1;
+            renderer.GetPropertyBlock(mpb);
+            mpb.SetFloat(
+                ShaderLib.Variables.Renderer.SHADOW_INDEX, 
+                NO_SHADOW_INDEX);
+            renderer.SetPropertyBlock(mpb);
         }
 
-        //private void OnWillRenderObject()
-        //{
-        //
-        //}
-
-        public void SetupShadowMatrices(int index, Light shadowLight, out Matrix4x4 view, out Matrix4x4 proj)
+        public void SetupShadowMatrices(
+            int index, 
+            Light shadowLight, 
+            out Matrix4x4 view, 
+            out Matrix4x4 proj,
+            out float d)
         {
             SetupShadowCamera(index, shadowLight, renderer);
             view = shadowCamera.worldToCameraMatrix;
             proj = shadowCamera.projectionMatrix;
+            d = 1f/shadowCamera.farClipPlane;
+
         }
     }
 }

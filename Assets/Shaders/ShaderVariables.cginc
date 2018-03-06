@@ -60,16 +60,29 @@ CBUFFER_START(ShadowData)
 	sampler2D shadowTexture;
 	float4x4 shadowMatrices[4];
 	int shadowCount;
+	float4 shadowDistances;
+	float4 shadowBiases;
+	half shadowIntensity;
 CBUFFER_END
 
 #define SHADOW_COUNT			shadowCount
 
-static float2 shadowTexOffsets[4] = 
+static const float2 shadowTexOffsets[4] = 
 {
 	float2(0,0),
 	float2(.5,0),
 	float2(.5,.5),
 	float2(0,.5)
+};
+
+int shadowIndex;
+
+static const int shadowMask[4] = 
+{
+	1 << 0,
+	1 << 1,
+	1 << 2,
+	1 << 3
 };
 
 // Convenience macros

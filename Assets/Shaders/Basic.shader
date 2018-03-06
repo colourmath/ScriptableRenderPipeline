@@ -1,6 +1,4 @@
-﻿// Upgrade NOTE: replaced tex2D unity_Lightmap with UNITY_SAMPLE_TEX2D
-
-/**
+﻿/**
 * MIT License
 * 
 * Copyright (c) 2018 Joseph Pasek
@@ -34,6 +32,10 @@ Shader "ColourMath/Basic"
 		_SpecColor ("Specular Color", Color) = (1,1,1,1)
 		[KeywordEnum(POW_2,POW_4,POW_8,POW_16)]
 		SPEC ("Specular Power", Float) = 0
+
+		_ShadowFalloff("Shadow Falloff", Float) = 1
+		_ShadowIntensity("Shadow Intensity", Float) = 1
+
 	}
 	SubShader
 	{
@@ -49,6 +51,7 @@ Shader "ColourMath/Basic"
 			#pragma fragment frag
 			#pragma shader_feature SPEC_POW_2 SPEC_POW_4 SPEC_POW_8 SPEC_POW_16
 			#pragma multi_compile __ LIGHTMAP_ON
+			#pragma multi_compile __ SHADOW_PROJECTION_ORTHO
 
 			#define NORMAL_ON
 			#define SPECULAR_ON
@@ -75,7 +78,7 @@ Shader "ColourMath/Basic"
 				float4 vertex : SV_POSITION;
 				fixed4 albedo : COLOR0;
 				float4 uv : TEXCOORD0;
-				float3 viewDir : TEXCOORD1;
+				float4 viewDir : TEXCOORD1;
 				#if defined(NORMAL_ON)
 					half4 color[3] : TEXCOORD2; // 2..4
 					half4 specColor : COLOR1;
@@ -83,10 +86,10 @@ Shader "ColourMath/Basic"
 					float3 normal : TEXCOORD2;
 				#endif
 
-
 				// TODO: Cubemap needs world normal
 				// Shadowmap needs 1/2 of a TEXCOORD, do perspective division per-vertex
 				half4 shadowCoords[2] : TEXCOORD5; // 5..6 we can support up-to 4 shadow maps
+				half4 shadowDepths : TEXCOORD7; // store depth component for 4 shadows 
 			};
 
 			sampler2D _MainTex;
@@ -98,15 +101,22 @@ Shader "ColourMath/Basic"
 				o.vertex = UnityObjectToClipPos(v.vertex);
 				float4 worldPos = mul(unity_ObjectToWorld, v.vertex);
 
+				// TODO: Support all shadows
 				//for(int i = 0; i < SHADOW_COUNT; i++)
 				//{
-					float4 shadowCoord = mul(shadowMatrices[0],worldPos);
-					o.shadowCoords[0].xy = shadowCoord.xy / shadowCoord.w;
-					o.shadowCoords[0].xy = o.shadowCoords[0].xy * .5 + .5;
+					float4 shadowCoord = mul(shadowMatrices[0], worldPos);
+					o.shadowCoords[0].xy = shadowCoord.xy;
+					#if defined(SHADOW_PROJECTION_ORTHO)
+						o.shadowDepths[0] = (shadowCoord.z / shadowCoord.w  * .5 + .5);// * shadowDistances[0];
+					#else
+						o.shadowDepths[0] = shadowCoord.w;
+					#endif
+
 				//}
 					o.shadowCoords[0].zw = 0;
 					o.shadowCoords[1].xy = 0;
 					o.shadowCoords[1].zw = 0;
+					o.shadowDepths.yzw = 0;
 
 				o.uv.xy = TRANSFORM_TEX(v.uv, _MainTex);
 				float3 viewPos = UnityObjectToViewPos(v.vertex).xyz;
@@ -130,15 +140,13 @@ Shader "ColourMath/Basic"
 					half4 color2 = 0;
 					half4 specColor = 0;
 					for(int i = 0; i < LIGHT_COUNT; i++)
-					{
 						ComputeLight(i, viewPos, tbn, color0.xyz, color1.xyz, color2.xyz, specColor.xyz);
-					}
 
 					AmbientContribution(ambient.rgb, color0.rgb, color1.rgb, color2.rgb);
 
 					float3 viewDir = TransformDirectionTBN(tbn[0], tbn[1], tbn[2], FORWARD.xyz);
-					o.viewDir = NORMALIZE(viewDir,SQUARED_DIST(viewDir));
-					
+					o.viewDir.xyz = NORMALIZE(viewDir,SQUARED_DIST(viewDir));
+					o.viewDir.w = (shadowIndex & shadowMask[0]) == 0 ? 0 : 1;
 					o.color[0] = color0;
 					o.color[1] = color1;
 					o.color[2] = color2;
@@ -151,14 +159,54 @@ Shader "ColourMath/Basic"
 			}
 			
 			sampler2D _NormalTex;
+			fixed _ShadowFalloff;
+			fixed _ShadowIntensity;
+
+			half ComputeShadow(
+				half2 shadowUV, 
+				sampler2D shadowSampler, 
+				half vertDepth, 
+				half bias, 
+				half mask)
+			{
+				const half depthScale = 32.0;
+
+				half2 depthTex;
+				half depth;
+
+				depthTex = tex2D(shadowSampler, shadowUV).rg;
+				depth = depthTex.r * depthScale + bias;
+					 
+				half depthDelta = depth - vertDepth;
+				half fade = saturate(1.0 + depthDelta * _ShadowFalloff) * shadowIntensity;
+				half depthDeltaScaled = saturate(16.0 * depthDelta);
+
+				half atten = max(0.0,vertDepth * shadowDistances[0]);
+				
+				half shadow = 1.0 - depthTex.g + depthDeltaScaled * depthTex.g;
+				
+				shadow = saturate(shadow+mask+atten); // prevent self-shadowing artifacts
+				return shadow * fade + 1.0 - fade;
+
+			}
 
 			fixed4 frag (v2f i) : SV_Target
 			{
 				// sample the texture
 				fixed4 col = tex2D(_MainTex, i.uv) * i.albedo;
 
-				fixed shadow = tex2D(shadowTexture, i.shadowCoords[0].xy).r;
-				col.rgb *= 1-shadow;
+				// TODO: Support all shadow casters
+				// Real-Time Shadows
+				const half mask = i.viewDir.w;
+				half2 coord = i.shadowCoords[0].xy / i.shadowDepths[0];
+				coord = coord * .5 + .5;
+
+				half shadow = ComputeShadow(
+					coord, 
+					shadowTexture, 
+					i.shadowDepths[0], 
+					shadowBiases[0], 
+					mask);
 
 				#if defined(NORMAL_ON)
 					fixed3 n = UnpackNormal(tex2D(_NormalTex, i.uv.xy));
@@ -177,7 +225,7 @@ Shader "ColourMath/Basic"
 							n);
 					#endif
 
-					col.rgb *= diffuse;
+					col.rgb *= diffuse * shadow;
 					
 					// Radiosity Blinn Specular 
 					fixed3 spec = i.specColor.rgb;

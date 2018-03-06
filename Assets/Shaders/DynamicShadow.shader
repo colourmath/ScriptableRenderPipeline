@@ -29,36 +29,52 @@ Shader "Hidden/Dynamic Shadow"
 	}
 	SubShader
 	{
+		// Depth Pass
 		Pass
 		{
+			Name "ShadowCaster"
+			Tags{ "LightMode" = "ShadowCaster" }
+
 			CGPROGRAM
 			#pragma vertex vert
 			#pragma fragment frag
-			
+			#pragma target 2.0
+
+			#pragma multi_compile __ SHADOW_PROJECTION_ORTHO
+
 			#include "UnityCG.cginc"
 
-			struct a2v
+			struct a2v_shadow
 			{
 				float4 vertex : POSITION;
 			};
-
-			struct v2f
+			struct v2f_shadow
 			{
-				float4 vertex : SV_POSITION;
+				float4 pos : SV_POSITION;
+				float2 depth : TEXCOORD0;
 			};
-			
-			v2f vert (a2v v)
+
+			v2f_shadow vert(a2v_shadow v)
 			{
-				v2f o;
-				o.vertex = UnityObjectToClipPos(v.vertex);
+				v2f_shadow o;
+				o.pos = UnityObjectToClipPos(v.vertex);
+				#if defined(SHADOW_PROJECTION_ORTHO)
+					o.depth = o.pos.z / o.pos.w  * .5 + .5;
+				#else
+					o.depth = o.pos.w;
+				#endif
 				return o;
 			}
-			
-			fixed frag (v2f i) : SV_Target
+
+			half4 frag(v2f_shadow i) : SV_Target
 			{
-				return i.vertex.z / 128.0;
+				const float depthScale = 1.0 / 32.0;
+
+				half d = i.depth * depthScale;
+				return half4(d,1.0,1.0,1.0);
 			}
+
 			ENDCG
 		}
-	}
+	} 
 }
