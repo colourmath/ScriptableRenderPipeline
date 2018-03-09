@@ -56,8 +56,8 @@ Shader "ColourMath/Basic"
 			#define NORMAL_ON
 			#define SPECULAR_ON
 
-			half4 _SpecColor;
 			#include "Core.cginc"
+			
 
 			struct a2v
 			{
@@ -94,6 +94,8 @@ Shader "ColourMath/Basic"
 
 			sampler2D _MainTex;
 			float4 _MainTex_ST;
+
+			half4 _SpecColor;
 
 			v2f vert (a2v v)
 			{
@@ -140,7 +142,15 @@ Shader "ColourMath/Basic"
 					half4 color2 = 0;
 					half4 specColor = 0;
 					for(int i = 0; i < LIGHT_COUNT; i++)
-						ComputeLight(i, viewPos, tbn, color0.xyz, color1.xyz, color2.xyz, specColor.xyz);
+						ComputeLight(
+							i, 
+							viewPos, 
+							tbn, 
+							color0.xyz, 
+							color1.xyz, 
+							color2.xyz, 
+							specColor.xyz,
+							_SpecColor.rgb);
 
 					AmbientContribution(ambient.rgb, color0.rgb, color1.rgb, color2.rgb);
 
@@ -162,34 +172,6 @@ Shader "ColourMath/Basic"
 			fixed _ShadowFalloff;
 			fixed _ShadowIntensity;
 
-			half ComputeShadow(
-				half2 shadowUV, 
-				sampler2D shadowSampler, 
-				half vertDepth, 
-				half bias, 
-				half mask)
-			{
-				const half depthScale = 32.0;
-
-				half2 depthTex;
-				half depth;
-
-				depthTex = tex2D(shadowSampler, shadowUV).rg;
-				depth = depthTex.r * depthScale + bias;
-					 
-				half depthDelta = depth - vertDepth;
-				half fade = saturate(1.0 + depthDelta * _ShadowFalloff) * shadowIntensity;
-				half depthDeltaScaled = saturate(16.0 * depthDelta);
-
-				half atten = max(0.0,vertDepth * shadowDistances[0]);
-				
-				half shadow = 1.0 - depthTex.g + depthDeltaScaled * depthTex.g;
-				
-				shadow = saturate(shadow+mask+atten); // prevent self-shadowing artifacts
-				return shadow * fade + 1.0 - fade;
-
-			}
-
 			fixed4 frag (v2f i) : SV_Target
 			{
 				// sample the texture
@@ -206,7 +188,8 @@ Shader "ColourMath/Basic"
 					shadowTexture, 
 					i.shadowDepths[0], 
 					shadowBiases[0], 
-					mask);
+					mask,
+					_ShadowFalloff);
 
 				#if defined(NORMAL_ON)
 					fixed3 n = UnpackNormal(tex2D(_NormalTex, i.uv.xy));

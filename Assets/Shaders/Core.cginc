@@ -109,6 +109,35 @@ inline float LightModel(float nl)
 	return nl;
 }
 
+half ComputeShadow(
+	half2 shadowUV, 
+	sampler2D shadowSampler, 
+	half vertDepth, 
+	half bias, 
+	half mask,
+	half falloff)
+{
+	const half depthScale = 32.0;
+
+	half2 depthTex;
+	half depth;
+
+	depthTex = tex2D(shadowSampler, shadowUV).rg;
+	depth = depthTex.r * depthScale + bias;
+					 
+	half depthDelta = depth - vertDepth;
+	half fade = saturate(1.0 + depthDelta * falloff) * shadowIntensity;
+	half depthDeltaScaled = saturate(16.0 * depthDelta);
+
+	half atten = max(0.0,vertDepth * shadowDistances[0]);
+				
+	half shadow = 1.0 - depthTex.g + depthDeltaScaled * depthTex.g;
+				
+	shadow = saturate(shadow+mask+atten); // prevent self-shadowing artifacts
+	return shadow * fade + 1.0 - fade;
+
+}
+
 inline void ComputeLight(
 	int index, 
 	float3 viewPos, 
@@ -116,7 +145,8 @@ inline void ComputeLight(
 	inout float3 color0, 
 	inout float3 color1, 
 	inout float3 color2, 
-	inout float3 specColor)
+	inout float3 specColor,
+	float3 specTint)
 {
 	float4 lightPos = LIGHT_POS(index);
 	float3 lightDir = lightPos.xyz - viewPos*lightPos.w;
@@ -137,7 +167,7 @@ inline void ComputeLight(
 	color2 += max(0.0, dot(lightDir, BASIS_2) * LIGHT_COLOR(index) * atten);
 
 	// Gouraud Blinn Specular approximation
-	specColor += Pow16(max(0.0,dot(h, tbn[2]))) * LIGHT_COLOR(index) * _SpecColor * atten;
+	specColor += Pow16(max(0.0,dot(h, tbn[2]))) * LIGHT_COLOR(index) * specTint * atten;
 }
 
 inline void AmbientContribution(

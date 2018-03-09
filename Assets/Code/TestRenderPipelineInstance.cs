@@ -167,10 +167,12 @@ namespace ColourMath.Rendering
                     {
                         renderQueueRange = RenderQueueRange.opaque,
                         layerMask = camera.cullingMask
+                        //renderingLayerMask = ShaderLib.RenderLayers.Everything | ShaderLib.RenderLayers.ReceivesShadows
                     };
-
                 
                 // TODO: Render baked objects with Mixed RT Lighting as a different Pass.
+                // Mixed-Lights should contribute specular but not diffuse
+
 
                 // It would be nice if we could do something like flip a multi-compile flag
                 // for a renderer based on a setting, like receiveShadows.

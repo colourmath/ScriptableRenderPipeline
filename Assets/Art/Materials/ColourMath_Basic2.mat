@@ -28,7 +28,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Floats:
     - SPEC: 0
-    - _ShadowFalloff: 0.5
+    - _ShadowFalloff: 0.34
     - _ShadowIntensity: 1
     m_Colors:
     - _SpecColor: {r: 0.3584906, g: 0.3584906, b: 0.3584906, a: 1}

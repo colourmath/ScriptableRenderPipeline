@@ -32,6 +32,15 @@ namespace ColourMath.Rendering
 {
     public static class ShaderLib
     {
+        public static class RenderLayers
+        {
+            public const uint Nothing = 0;
+            public const uint ReceivesShadows = 1;
+            public const uint CastsShadows = 2;
+            public const uint BakedLightmaps = 4;
+            public const uint Everything = 4294967295;
+        }
+
         public static class Variables
         {
             public static class Global
