@@ -34,11 +34,20 @@ namespace ColourMath.Rendering
         public Color ambientHorizon;
         public Color ambientGround;
 
+        [Header("Fog")]
+        public Color fogColor;
+        public float fogNearDistance;
+        public float fogFarDistance;
+
         private void Update()
         {
             RenderSettings.ambientSkyColor = ambientSky;
             RenderSettings.ambientEquatorColor = ambientHorizon;
             RenderSettings.ambientGroundColor = ambientGround;
+
+            RenderSettings.fogColor = fogColor;
+            RenderSettings.fogStartDistance = fogNearDistance;
+            RenderSettings.fogEndDistance = fogFarDistance;
         }
     }
 }

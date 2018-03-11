@@ -30,6 +30,33 @@
 #define BASIS_1 float3(	-1.0/sqrt(6.0),		1.0/sqrt(2.0),		1.0/sqrt(3.0))
 #define BASIS_2 float3(	sqrt(3.0/2.0),		0.0,				1.0/sqrt(3.0))
 
+/*
+// TODO: Drive light array size through variants
+// This should reduce the amount of operations on 'black' lights when the compiler unrolls the loop
+
+#pragma multi_compile LIGHTCOUNT_1 LIGHTCOUNT_2 LIGHTCOUNT_3 LIGHTCOUNT_4 LIGHTCOUNT_5 LIGHTCOUNT_6 LIGHTCOUNT_7 LIGHTCOUNT_8
+
+#if defined(LIGHTCOUNT_1)
+	#define NUM_LIGHTS 1
+#elif defined(LIGHTCOUNT_2)
+	#define NUM_LIGHTS 2
+#elif defined(LIGHTCOUNT_3)
+	#define NUM_LIGHTS 3
+#elif defined(LIGHTCOUNT_4)
+	#define NUM_LIGHTS 4
+#elif defined(LIGHTCOUNT_5)
+	#define NUM_LIGHTS 5
+#elif defined(LIGHTCOUNT_6)
+	#define NUM_LIGHTS 6
+#elif defined(LIGHTCOUNT_7)
+	#define NUM_LIGHTS 7
+#elif defined(LIGHTCOUNT_8)
+	#define NUM_LIGHTS 8
+#else
+	#define NUM_LIGHTS 0
+#endif
+*/
+
 // Global Lighting Data
 CBUFFER_START(GlobalLightData)
 	// view-space lighting 
@@ -40,21 +67,28 @@ CBUFFER_START(GlobalLightData)
 CBUFFER_END
 
 // Convenience macros
-#define LIGHT_POS(id)		globalLightPositions[id]
-#define LIGHT_COLOR(id)		globalLightColors[id]
-#define LIGHT_ATTEN(id)		globalLightAtten[id]
-#define LIGHT_COUNT			globalLightCount.x
+#define LIGHT_POS(id)			globalLightPositions[id]
+#define LIGHT_COLOR(id)			globalLightColors[id]
+#define LIGHT_ATTEN(id)			globalLightAtten[id]
+#define LIGHT_COUNT				globalLightCount.x
 
-CBUFFER_START(AmbientLightData)
+CBUFFER_START(EnvironmentData)
 	fixed4 ambientLightSky;
 	fixed4 ambientLightHorizon;
 	fixed4 ambientLightGround;
+
+	float4 fogParams;
+	fixed4 fogColor;
 CBUFFER_END
 
 // Convenience macros
 #define AMBIENT_SKY				ambientLightSky
 #define AMBIENT_HORIZON			ambientLightHorizon
 #define AMBIENT_GROUND			ambientLightGround
+
+#define FOG_NEAR				fogParams.x
+#define FOG_FAR					fogParams.y
+#define FOG_COLOR				fogColor.rgb
 
 CBUFFER_START(ShadowData)
 	sampler2D shadowTexture;
@@ -69,21 +103,39 @@ CBUFFER_END
 
 static const float2 shadowTexOffsets[4] = 
 {
-	float2(0,0),
-	float2(.5,0),
-	float2(.5,.5),
-	float2(0,.5)
+	float2(0.0,		0.0),
+	float2(0.0,		0.5),
+	float2(0.5,		0.0),
+	float2(0.5,		0.5)
+};
+
+static const float4 shadowClamps[4] = 
+{
+	float4(0.0,		0.0,	0.5,	0.5),
+	float4(0.0,		0.5,	0.5,	1.0),
+	float4(0.5,		0.0,	1.0,	0.5),
+	float4(0.5,		0.5,	1.0,	1.0)
 };
 
 int shadowIndex;
 
 static const int shadowMask[4] = 
 {
-	1 << 0,
-	1 << 1,
-	1 << 2,
-	1 << 3
+	1, 2, 4, 8
 };
+
+static const int shadowMaskEvals[8] =
+{
+	1,		// anything & itself == 0
+	0,		// 2 & 1
+	0,		// 4 & 2
+	0,		// 4 & 1
+	0,		// 8 & 4
+	0,		// no 5
+	0,		// 8 & 2
+	0		// 8 & 1
+};
+
 
 // Convenience macros
 #define	SHADOW_TEX				shadowTexture

@@ -33,6 +33,16 @@ namespace ColourMath.Rendering
     public class TestRenderPipelineInstance : RenderPipeline, IRenderPipeline
     {
         /// <summary>
+        /// The way Lights will be filtered
+        /// </summary>
+        public enum LightMode
+        {
+            Dynamic, // Objects that will be dynamically lit
+            Mixed,   // 'Mixed' lights contribute specular if the light was baked, otherwise dynamic
+            Unlit    // No light information (i.e. particles)
+        }
+
+        /// <summary>
         /// Sorts the Lights by type, then squared distance to Camera. 
         /// Directional Lights will always be first.
         /// </summary>
@@ -111,15 +121,26 @@ namespace ColourMath.Rendering
                 cmd.SetGlobalVector(
                     ShaderLib.Variables.Global.AMBIENT_GROUND,  
                     RenderSettings.ambientGroundColor);
-                context.ExecuteCommandBuffer(cmd);
+            cmd.SetGlobalVector(
+                ShaderLib.Variables.Global.FOG_PARAMS,
+                new Vector4(
+                    RenderSettings.fogStartDistance, 
+                    RenderSettings.fogEndDistance));
+            cmd.SetGlobalColor(
+                ShaderLib.Variables.Global.FOG_COLOR,
+                RenderSettings.fogColor);
+            context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
+
+            ScriptableCullingParameters cullingParams;
+            FilterRenderersSettings filterSettings;
+            DrawRendererSettings settings;
 
             foreach (Camera camera in cameras)
             {
                 lightcomparer.cameraPosition = camera.transform.position;
 
                 // Culling
-                ScriptableCullingParameters cullingParams;
                 if (!CullResults.GetCullingParameters(camera, out cullingParams))
                     continue;
 
@@ -151,31 +172,42 @@ namespace ColourMath.Rendering
                     cmd.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
                     cmd.ClearRenderTarget(true, false, Color.clear);
                     context.ExecuteCommandBuffer(cmd);
-                CommandBufferPool.Release(cmd);               
+                CommandBufferPool.Release(cmd);
 
-                // Draw opaque objects using BasicPass shader pass
-                DrawRendererSettings settings =
-                    new DrawRendererSettings(camera, ShaderLib.Passes.Base);
+                // Render objects with Lightmaps first. 
+                // Mixed -Lights should contribute specular but not diffuse
+
+                settings = new DrawRendererSettings(camera, ShaderLib.Passes.Mixed);
+                settings.sorting.flags = SortFlags.CommonOpaque;
+                settings.flags = DrawRendererFlags.EnableDynamicBatching;
+                settings.rendererConfiguration = RendererConfiguration.PerObjectLightmaps;
+                // TODO: Circle back when it's time to take on probes
+                
+                filterSettings =
+                    new FilterRenderersSettings(true)
+                    {
+                        renderQueueRange = RenderQueueRange.opaque,
+                        layerMask = camera.cullingMask,
+                        renderingLayerMask = ShaderLib.RenderLayers.BakedLightmaps
+                    };
+
+                context.DrawRenderers(cull.visibleRenderers, ref settings, filterSettings);
+
+                // Next render dynamic objects
+                settings = new DrawRendererSettings(camera, ShaderLib.Passes.Dynamic);
                 settings.sorting.flags = SortFlags.CommonOpaque;
                 settings.flags = DrawRendererFlags.EnableDynamicBatching;
                 settings.rendererConfiguration = RendererConfiguration.PerObjectLightmaps;
                 // TODO: Circle back when it's time to take on probes
 
-                // It would be nice to filter out things based on a scriptable heuristic.
-                FilterRenderersSettings filterSettings =
+                filterSettings =
                     new FilterRenderersSettings(true)
                     {
                         renderQueueRange = RenderQueueRange.opaque,
-                        layerMask = camera.cullingMask
-                        //renderingLayerMask = ShaderLib.RenderLayers.Everything | ShaderLib.RenderLayers.ReceivesShadows
+                        layerMask = camera.cullingMask,
+                        renderingLayerMask = ShaderLib.RenderLayers.Everything & ~ShaderLib.RenderLayers.BakedLightmaps
                     };
-                
-                // TODO: Render baked objects with Mixed RT Lighting as a different Pass.
-                // Mixed-Lights should contribute specular but not diffuse
 
-
-                // It would be nice if we could do something like flip a multi-compile flag
-                // for a renderer based on a setting, like receiveShadows.
                 context.DrawRenderers(cull.visibleRenderers, ref settings, filterSettings);
 
                 // Draw skybox
@@ -202,19 +234,14 @@ namespace ColourMath.Rendering
                 shadowMapDescriptor, 
                 FilterMode.Bilinear);
 
-            //cmd.GetTemporaryRT(
-            //    ShaderLib.Variables.Global.id_TempTex,
-            //    settings.shadowMapSize,
-            //    settings.shadowMapSize,
-            //    24,
-            //    FilterMode.Bilinear,
-            //    RenderTextureFormat.Default);
             bool isOrtho = 
                 shadowLight.type == LightType.Directional || 
                 shadowLight.type == LightType.Area;
 
             cmd.SetRenderTarget(shadowRTID);
-            cmd.ClearRenderTarget(true, false, Color.clear, 1);
+            cmd.SetViewport(
+                new Rect(0, 0, shadowMapDescriptor.width, shadowMapDescriptor.height));
+            cmd.ClearRenderTarget(true, true, Color.clear, 1);
 
             if (isOrtho)
                 cmd.EnableShaderKeyword(ShaderLib.Keywords.SHADOW_PROJECTION_ORTHO);
@@ -223,6 +250,19 @@ namespace ColourMath.Rendering
 
             float[] shadowDistances =   new float[TestRenderPipeline.MAX_SHADOWMAPS];
             float[] shadowBiases =      new float[TestRenderPipeline.MAX_SHADOWMAPS];
+
+            Vector2 shadowQuadrant = new Vector2(
+                shadowMapDescriptor.width / 2f,
+                shadowMapDescriptor.height / 2f);
+
+            // Set pixel rects for each quadrant of the shadowmap texture
+            Rect[] pixelRects = new Rect[TestRenderPipeline.MAX_SHADOWMAPS]
+            {
+                new Rect(Vector2.zero,shadowQuadrant),
+                new Rect(new Vector2(0,shadowQuadrant.y),shadowQuadrant),
+                new Rect(new Vector2(shadowQuadrant.x,0),shadowQuadrant),
+                new Rect(shadowQuadrant,shadowQuadrant)
+            };
 
             Matrix4x4[] shadowMatrices = new Matrix4x4[TestRenderPipeline.MAX_SHADOWMAPS];
             // For each ShadowCaster, calculate the local shadow matrix.
@@ -237,6 +277,7 @@ namespace ColourMath.Rendering
                     out projectionMatrix,
                     out distance);
                 cmd.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
+                cmd.SetViewport(pixelRects[i]);
                 cmd.DrawRenderer(
                     ShadowCaster.casters[i].renderer, 
                     shadowMaterial, 
@@ -259,9 +300,9 @@ namespace ColourMath.Rendering
             cmd.SetGlobalVector(
                 ShaderLib.Variables.Global.SHADOW_DISTANCES,
                 new Vector4(
-                    shadowDistances[0], 
-                    shadowDistances[1], 
-                    shadowDistances[2], 
+                    shadowDistances[0],
+                    shadowDistances[1],
+                    shadowDistances[2],
                     shadowDistances[3]));
             cmd.SetGlobalFloat(
                 ShaderLib.Variables.Global.SHADOW_COUNT, 
@@ -306,7 +347,7 @@ namespace ColourMath.Rendering
                 Color lightColor = light.finalColor;
                 // we will be able to multiply out any light data that isn't a mixed light
                 // this will help better with blending on lightmapped objects
-                lightColor.a = light.light.lightmapBakeType == LightmapBakeType.Mixed ? 1f : 0f;
+                lightColor.a = light.light.lightmapBakeType == LightmapBakeType.Mixed ? 0f : 1f;
                 lightColors[lightCount] = lightColor;
                 
                 if (light.lightType == LightType.Directional)
@@ -327,7 +368,7 @@ namespace ColourMath.Rendering
                     lightAtten[lightCount] = new Vector4(
                         -1, 
                         1, 
-                        25f/(light.range*light.range),
+                        25f / (light.range*light.range),
                         light.range * light.range);
 
                 }

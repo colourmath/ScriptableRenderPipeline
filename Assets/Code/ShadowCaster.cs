@@ -32,10 +32,6 @@ namespace ColourMath.Rendering
     public class ShadowCaster : MonoBehaviour
     {
         const int NO_SHADOW_INDEX = 0;
-        const int SHADOW_INDEX_0 = 1 << 0;
-        const int SHADOW_INDEX_1 = 1 << 1;
-        const int SHADOW_INDEX_2 = 1 << 2;
-        const int SHADOW_INDEX_3 = 1 << 3;
 
         static Camera shadowCamera;
 
@@ -46,8 +42,6 @@ namespace ColourMath.Rendering
         new public Renderer renderer; // GIVE THESE BACK, UNITY!!
         [System.NonSerialized]
         int index = -1;
-
-        int casterID;
 
         static Rect[] PixelRects = new Rect[4]
         {
@@ -68,8 +62,21 @@ namespace ColourMath.Rendering
                 shadowCamera.enabled = false;
             }
 
-            shadowCamera.aspect = 1f;
-            shadowCamera.nearClipPlane = 0.01f;
+            float aspect = 1f;
+            float nearClip = 0.01f;
+            float farClip;
+            float fov = 60;
+
+            Vector3 position = Vector3.zero;
+            Vector3 forward = Vector3.forward;
+            Quaternion rotation = Quaternion.identity;
+
+            Matrix4x4 rotationMatrix = Matrix4x4.identity;
+            Matrix4x4 translationMatrix = Matrix4x4.identity;
+            Matrix4x4 projectionMatrix = Matrix4x4.identity;
+
+            shadowCamera.aspect = aspect;
+            shadowCamera.nearClipPlane = nearClip;
 
             // The light type should dictate the type of projection we're building
             shadowCamera.orthographic =
@@ -78,16 +85,26 @@ namespace ColourMath.Rendering
             // TODO: Calculate this manually, but for now just use a Unity Camera to do the heavy lifting.
             if (shadowCamera.orthographic)
             {
-                shadowCamera.transform.rotation = l.transform.rotation;
-                shadowCamera.transform.position = l.type == LightType.Area ?
+                forward = l.transform.forward;
+                rotation = l.transform.rotation;
+                shadowCamera.transform.rotation = rotation;
+
+                position = l.type == LightType.Area ?
                     l.transform.position :
-                    r.transform.position - (shadowCamera.transform.forward * r.bounds.extents.magnitude);
+                    r.transform.position - (forward * r.bounds.extents.magnitude);
+                
+                shadowCamera.transform.position = position;
             }
             else
             {
-                shadowCamera.transform.position = l.transform.position;
+                position = l.transform.position;
+
+                shadowCamera.transform.position = position;
                 shadowCamera.transform.LookAt(r.transform, Vector3.up);
             }
+
+            rotationMatrix = Matrix4x4.LookAt(position, r.transform.position, Vector3.up);
+            translationMatrix = Matrix4x4.Translate(position - r.transform.position);
 
             // We need to get the extremes of the bounds relative to the shadow Camera
             // then build a tight-fitting frustum to get the absolute best texel-density.
@@ -125,16 +142,29 @@ namespace ColourMath.Rendering
             Vector3 min = new Vector3(minX, minY, minZ);
             Vector3 max = new Vector3(maxX, maxY, maxZ);
 
-            shadowCamera.farClipPlane = l.type == LightType.Directional ? maxZ : l.range;
+            farClip = l.type == LightType.Directional ? maxZ : l.range;
+            shadowCamera.farClipPlane = farClip;
 
             //DebugShadowFrustum(minX, minY, minZ, maxX, maxY, maxZ);
 
             if (shadowCamera.orthographic)
-                shadowCamera.orthographicSize = .5f * (maxY - minY);
+            {
+                float size = .5f * (maxY - minY);
+                shadowCamera.orthographicSize = size;
+                projectionMatrix = Matrix4x4.Ortho(
+                    -aspect * size, aspect * size,
+                    -size, size,
+                    nearClip, farClip);
+            }
             else
-                shadowCamera.fieldOfView = Vector3.Angle(max,min);
+            {
+                fov = Vector3.Angle(max, min);
+                shadowCamera.fieldOfView = fov;
+                projectionMatrix = Matrix4x4.Perspective(fov, aspect, nearClip, farClip);
+            }
 
             shadowCamera.rect = PixelRects[index];
+
         }
 
         static void DebugShadowFrustum(
@@ -196,22 +226,42 @@ namespace ColourMath.Rendering
                 Color.yellow);
         }
 
+        static int AddCaster(ShadowCaster c)
+        {
+            casters.Add(c);
+            return casters.Count - 1;
+        }
+
+        static void RemoveCaster(ShadowCaster c)
+        {
+            casters.Remove(c);
+            for (int i = 0; i < casters.Count; i++)
+            {
+                casters[i].index = 1 << i;
+                casters[i].ApplyPropertyBlock();
+            }
+        }
+
+        void ApplyPropertyBlock()
+        {
+            renderer.GetPropertyBlock(mpb);
+            mpb.SetFloat(
+                ShaderLib.Variables.Renderer.SHADOW_INDEX,
+                index);
+            renderer.SetPropertyBlock(mpb);
+        }
+
         private void OnEnable()
         {
             renderer = GetComponent<Renderer>();
-
             mpb = new MaterialPropertyBlock();
+            
             // We only allow for a finite number of casters, denoted by a constant value
             if (casters.Count < TestRenderPipeline.MAX_SHADOWMAPS)
             {
-                index = casters.Count;
-                casterID = 1 << index;
-                casters.Add(this);
-                renderer.GetPropertyBlock(mpb);
-                mpb.SetFloat(
-                    ShaderLib.Variables.Renderer.SHADOW_INDEX, 
-                    casterID);
-                renderer.SetPropertyBlock(mpb);
+                int i = AddCaster(this);
+                index = 1 << i;
+                ApplyPropertyBlock();
             }
             else
                 Debug.LogWarning(string.Format(
@@ -222,9 +272,9 @@ namespace ColourMath.Rendering
 
         private void OnDisable()
         {
-            if (casters.Contains(this))
-                casters.Remove(this);
+            RemoveCaster(this); // Remove this caster and update all others
             index = -1;
+
             renderer.GetPropertyBlock(mpb);
             mpb.SetFloat(
                 ShaderLib.Variables.Renderer.SHADOW_INDEX, 
@@ -242,8 +292,7 @@ namespace ColourMath.Rendering
             SetupShadowCamera(index, shadowLight, renderer);
             view = shadowCamera.worldToCameraMatrix;
             proj = shadowCamera.projectionMatrix;
-            d = 1f/shadowCamera.farClipPlane;
-
+            d = 1f / shadowCamera.farClipPlane;
         }
     }
 }

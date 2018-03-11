@@ -38,7 +38,7 @@ namespace ColourMath.Rendering
             public const uint ReceivesShadows = 1;
             public const uint CastsShadows = 2;
             public const uint BakedLightmaps = 4;
-            public const uint Everything = 4294967295;
+            public const uint Everything = uint.MaxValue;
         }
 
         public static class Variables
@@ -51,10 +51,13 @@ namespace ColourMath.Rendering
                 public const string LIGHTS_ATTEN =      "globalLightAtten";
                 public const string LIGHTS_COUNT =      "globalLightCount";
 
-                // Ambient CBuffer
+                // Enviroment CBuffer
                 public const string AMBIENT_SKY =       "ambientLightSky";
                 public const string AMBIENT_HORIZON =   "ambientLightHorizon";
                 public const string AMBIENT_GROUND =    "ambientLightGround";
+
+                public const string FOG_PARAMS =        "fogParams";
+                public const string FOG_COLOR =         "fogColor";
 
                 // Shadow CBuffer
                 public const string SHADOW_TEX =        "shadowTexture";
@@ -64,19 +67,20 @@ namespace ColourMath.Rendering
                 public const string SHADOW_BIASES =     "shadowBiases";
                 public const string SHADOW_INTENSITY =  "shadowIntensity";
 
-
                 public const string SHADOW_PROJ =       "shadowMatrix";
 
                 public static int id_ShadowTex;
 
-                public const string TEMP_TEX =        "_TempTex";
+
+
+                public const string TEMP_TEX =          "_TempTex";
                 public static int id_TempTex;
 
             }
 
             public static class Renderer
             {
-                public const string SHADOW_INDEX = "shadowIndex";
+                public const string SHADOW_INDEX =      "shadowIndex";
             }
         }
 
@@ -84,6 +88,15 @@ namespace ColourMath.Rendering
         {
             public const string BASE_PASS = "BasePass";
             public static ShaderPassName Base { get { return new ShaderPassName(BASE_PASS); } }
+
+            public const string MIXED = "Mixed";
+            public static ShaderPassName Mixed { get { return new ShaderPassName(MIXED); } }
+
+            public const string DYNAMIC = "Dynamic";
+            public static ShaderPassName Dynamic { get { return new ShaderPassName(DYNAMIC); } }
+
+            public const string TRANSPARENT = "Transparent";
+            public static ShaderPassName Transparent { get { return new ShaderPassName(TRANSPARENT); } }
 
             public const int SHADOW_PASS_ID = 0;
         }

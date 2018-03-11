@@ -115,9 +115,10 @@ half ComputeShadow(
 	half vertDepth, 
 	half bias, 
 	half mask,
+	half shadowDistance,
 	half falloff)
 {
-	const half depthScale = 32.0;
+	#define depthScale 32.0
 
 	half2 depthTex;
 	half depth;
@@ -129,13 +130,13 @@ half ComputeShadow(
 	half fade = saturate(1.0 + depthDelta * falloff) * shadowIntensity;
 	half depthDeltaScaled = saturate(16.0 * depthDelta);
 
-	half atten = max(0.0,vertDepth * shadowDistances[0]);
-				
+	half atten = max(0.0,vertDepth * shadowDistance);
 	half shadow = 1.0 - depthTex.g + depthDeltaScaled * depthTex.g;
 				
 	shadow = saturate(shadow+mask+atten); // prevent self-shadowing artifacts
 	return shadow * fade + 1.0 - fade;
 
+	#undef depthScale
 }
 
 inline void ComputeLight(
@@ -161,10 +162,16 @@ inline void ComputeLight(
 
 	float atten = LINEAR_ATTEN(LIGHT_ATTEN(index).z, sqrDist);
 
+	float4 lightColor = LIGHT_COLOR(index);
+	
+	#if defined(LIGHTING_MIXED)
+		lightColor.rgb *= lightColor.a;
+	#endif
+
 	// TODO: Inject a lighting model that isn't just Lambert
-	color0 += max(0.0, dot(lightDir, BASIS_0) * LIGHT_COLOR(index) * atten);
-	color1 += max(0.0, dot(lightDir, BASIS_1) * LIGHT_COLOR(index) * atten);
-	color2 += max(0.0, dot(lightDir, BASIS_2) * LIGHT_COLOR(index) * atten);
+	color0 += max(0.0, dot(lightDir, BASIS_0) * lightColor.rgb * atten);
+	color1 += max(0.0, dot(lightDir, BASIS_1) * lightColor.rgb * atten);
+	color2 += max(0.0, dot(lightDir, BASIS_2) * lightColor.rgb * atten);
 
 	// Gouraud Blinn Specular approximation
 	specColor += Pow16(max(0.0,dot(h, tbn[2]))) * LIGHT_COLOR(index) * specTint * atten;

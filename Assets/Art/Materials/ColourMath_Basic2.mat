@@ -18,6 +18,10 @@ Material:
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
+    - _CubeTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _MainTex:
         m_Texture: {fileID: 2800000, guid: 2192a7ecdb3220d4f91f9666f8a56c2e, type: 3}
         m_Scale: {x: 10, y: 10}
@@ -28,7 +32,8 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Floats:
     - SPEC: 0
-    - _ShadowFalloff: 0.34
+    - _ShadowFalloff: 0.24
     - _ShadowIntensity: 1
     m_Colors:
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _SpecColor: {r: 0.3584906, g: 0.3584906, b: 0.3584906, a: 1}
