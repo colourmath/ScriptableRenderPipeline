@@ -36,4 +36,4 @@ Material:
     - _ShadowIntensity: 1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
-    - _SpecColor: {r: 0.3584906, g: 0.3584906, b: 0.3584906, a: 1}
+    - _SpecColor: {r: 0.16981131, g: 0.16981131, b: 0.16981131, a: 1}

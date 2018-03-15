@@ -194,7 +194,7 @@ fixed4 frag (v2f i) : SV_Target
 		shadowTexture, 
 		i.shadowDepths[0], 
 		shadowBiases[0], 
-		shadowMaskEvals[abs(shadowIndex - shadowMask[0])],
+		EVAL_SHADOWMASK(0),
 		shadowDistances[0],
 		_ShadowFalloff);
 
@@ -209,7 +209,7 @@ fixed4 frag (v2f i) : SV_Target
 		shadowTexture, 
 		i.shadowDepths[1], 
 		shadowBiases[1], 
-		shadowMaskEvals[abs(shadowIndex - shadowMask[1])],
+		EVAL_SHADOWMASK(1),
 		shadowDistances[1],
 		_ShadowFalloff);
 
@@ -224,7 +224,7 @@ fixed4 frag (v2f i) : SV_Target
 		shadowTexture, 
 		i.shadowDepths[2], 
 		shadowBiases[2], 
-		shadowMaskEvals[abs(shadowIndex - shadowMask[2])],
+		EVAL_SHADOWMASK(2),
 		shadowDistances[2],
 		_ShadowFalloff);
 
@@ -238,8 +238,8 @@ fixed4 frag (v2f i) : SV_Target
 		coord, 
 		shadowTexture, 
 		i.shadowDepths[3], 
-		shadowBiases[3], 
-		shadowMaskEvals[abs(shadowIndex - shadowMask[3])],
+		shadowBiases[3],
+		EVAL_SHADOWMASK(3),
 		shadowDistances[3],
 		_ShadowFalloff);
 

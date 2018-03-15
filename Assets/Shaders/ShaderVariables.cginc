@@ -30,6 +30,12 @@
 #define BASIS_1 float3(	-1.0/sqrt(6.0),		1.0/sqrt(2.0),		1.0/sqrt(3.0))
 #define BASIS_2 float3(	sqrt(3.0/2.0),		0.0,				1.0/sqrt(3.0))
 
+#if defined(SHADOW_MASK_BITWISE)
+	#define EVAL_SHADOWMASK(index) shadowIndex & shadowMask[index]
+#else
+	#define EVAL_SHADOWMASK(index) shadowMaskEvals[abs(shadowIndex - shadowMask[index])]
+#endif
+
 /*
 // TODO: Drive light array size through variants
 // This should reduce the amount of operations on 'black' lights when the compiler unrolls the loop

@@ -53,8 +53,7 @@ namespace ColourMath.Rendering
             public int Compare(VisibleLight x, VisibleLight y)
             {
                 // baked lights should be at the back as we will filter them out
-                if (x.light.lightmapBakeType == LightmapBakeType.Baked &&
-                    y.light.lightmapBakeType != LightmapBakeType.Baked)
+                if(x.light.bakingOutput.isBaked && !y.light.bakingOutput.isBaked)
                     return 1; 
 
                 // directional lights have infinite distance, so move these to the front
@@ -338,22 +337,22 @@ namespace ColourMath.Rendering
                 if(lightCount == maxLights)
                     break;
 
-                VisibleLight light = lights[i];
+                VisibleLight vl = lights[i];
 
                 // baked lights should not make it into our run-time buffer
-                if (light.light.lightmapBakeType == LightmapBakeType.Baked)
+                if (vl.light.bakingOutput.lightmapBakeType == LightmapBakeType.Baked)
                     continue;
 
-                Color lightColor = light.finalColor;
+                Color lightColor = vl.finalColor;
                 // we will be able to multiply out any light data that isn't a mixed light
                 // this will help better with blending on lightmapped objects
-                lightColor.a = light.light.lightmapBakeType == LightmapBakeType.Mixed ? 0f : 1f;
+                lightColor.a = vl.light.bakingOutput.lightmapBakeType == LightmapBakeType.Mixed ? 0f : 1f;
                 lightColors[lightCount] = lightColor;
                 
-                if (light.lightType == LightType.Directional)
+                if (vl.lightType == LightType.Directional)
                 {
                     // light position for directional lights is: (-direction, 0)
-                    Vector4 dir = viewMatrix * light.localToWorld.GetColumn(2);
+                    Vector4 dir = viewMatrix * vl.localToWorld.GetColumn(2);
                     lightPositions[lightCount] = new Vector4(-dir.x, -dir.y, -dir.z, 0);
                     lightAtten[lightCount] = new Vector4(
                         -1,
@@ -361,15 +360,15 @@ namespace ColourMath.Rendering
                         0,
                         0);
                 }
-                else if (light.lightType == LightType.Point)
+                else if (vl.lightType == LightType.Point)
                 {
-                    Vector4 pos = viewMatrix * light.localToWorld.GetColumn(3);
+                    Vector4 pos = viewMatrix * vl.localToWorld.GetColumn(3);
                     lightPositions[lightCount] = new Vector4(pos.x, pos.y, pos.z, 1);
                     lightAtten[lightCount] = new Vector4(
                         -1, 
                         1, 
-                        25f / (light.range*light.range),
-                        light.range * light.range);
+                        25f / (vl.range*vl.range),
+                        vl.range * vl.range);
 
                 }
                 else // TODO: Support spot and area
@@ -377,11 +376,11 @@ namespace ColourMath.Rendering
                     Debug.LogError(
                         string.Format(
                             "Unsupported LightType '{0}'", 
-                            light.lightType.ToString()),
-                        light.light);
+                            vl.lightType.ToString()),
+                        vl.light);
                 }
 
-                if (light.light.shadows != LightShadows.None && shadowLightID < 0)
+                if (vl.light.shadows != LightShadows.None && shadowLightID < 0)
                     shadowLightID = i;
 
                 lightCount++;

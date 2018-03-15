@@ -46,6 +46,7 @@ Shader "ColourMath/Basic"
 		#pragma multi_compile __ SHADOW_PROJECTION_ORTHO
 		#pragma shader_feature __ OVERRIDE_CUBE_REFLECTION_ON
 		#pragma debug
+		#define SHADOW_MASK_BITWISE // Use '&' bitwise AND operator to do shadowmask
 	ENDCG
 
 
