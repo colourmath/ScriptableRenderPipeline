@@ -63,8 +63,6 @@ float4 _MainTex_ST;
 half4 _SpecColor;
 half4 _Color;
 
-
-
 v2f vert (a2v v)
 {
 	v2f o;
@@ -73,6 +71,7 @@ v2f vert (a2v v)
 	float3 worldNormal = mul(unity_ObjectToWorld, float4(v.normal,0.0)).xyz;
 	worldNormal = NORMALIZE(worldNormal, SQUARED_DIST(worldNormal));
 
+	//////// Real-Time Shadows ////////
 	// Shadow 1
 		float4 shadowCoord = mul(shadowMatrices[0], worldPos);
 		o.shadowCoords[0].xy = shadowCoord.xy;
@@ -106,12 +105,11 @@ v2f vert (a2v v)
 			o.shadowDepths[3] = shadowCoord.w;
 		#endif
 
-	o.uv.xy = TRANSFORM_TEX(v.uv, _MainTex);
 	float3 viewPos = UnityObjectToViewPos(v.vertex).xyz;
 	float4 normal = float4(v.normal, 0.0);
 
+	o.uv.xy = TRANSFORM_TEX(v.uv, _MainTex);
 	o.uv.zw = LightmapTexcoord(v.uv2);
-
 	o.albedo = v.color;
 
 	#if defined(NORMAL_ON)
@@ -148,17 +146,18 @@ v2f vert (a2v v)
 		o.color[0] = color0;
 		o.color[1] = color1;
 		o.color[2] = color2;
+		// TODO: Spec Color value still has a 0..1 value available in alpha component
 		o.specColor = specColor;
 
 		half3 viewWorld = worldPos - _WorldSpaceCameraPos;
 		half3 reflection = viewWorld - 2.0*dot(worldNormal, viewWorld) * worldNormal;
 
+		// Pack Fog coordinate into our view direction interpolator
 		o.viewDir.w = saturate((-viewPos.z - FOG_NEAR) / (FOG_FAR - FOG_NEAR)); 
+		// Pack reflection vector across our lighting values
 		o.color[0].w = reflection.x;
 		o.color[1].w = reflection.y;
 		o.color[2].w = reflection.z;
-
-		o.specColor.a = 0;
 
 	#else
 		o.normal = mul(UNITY_MATRIX_IT_MV, normal);

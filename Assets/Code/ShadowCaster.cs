@@ -33,8 +33,6 @@ namespace ColourMath.Rendering
     {
         const int NO_SHADOW_INDEX = 0;
 
-        static Camera shadowCamera;
-
         public static List<ShadowCaster> casters 
             = new List<ShadowCaster>(TestRenderPipeline.MAX_SHADOWMAPS);
 
@@ -58,7 +56,11 @@ namespace ColourMath.Rendering
 
         MaterialPropertyBlock mpb;
 
-        static void SetupShadowCamera(
+        /// <summary>
+        /// Given a Renderer and a Light, calculates the Shadow View and Projection Matrices,
+        /// as well as a distance value describing the far clip plane of the projection.
+        /// </summary>
+        static void CalculateShadowMatrices(
             int index, 
             Light l, 
             Renderer r,
@@ -97,11 +99,12 @@ namespace ColourMath.Rendering
             else
             {
                 position = l.transform.position;
-                forward = position - r.transform.position;
+                forward = r.transform.position - position;
                 rotation = Quaternion.LookRotation(forward, Vector3.up);
             }
 
-            Matrix4x4 toShadowCaster = Matrix4x4.TRS(position, rotation, Vector3.one).inverse;
+            // Our world-to-shadow matrix is just the inverse of our TRS
+            Matrix4x4 worldToShadow = Matrix4x4.TRS(position, rotation, Vector3.one).inverse;
             
             // We need to get the extremes of the bounds relative to the shadow Camera
             // then build a tight-fitting frustum to get the absolute best texel-density.
@@ -119,22 +122,22 @@ namespace ColourMath.Rendering
             btl = new Vector3(boundsMin.x, boundsMax.y, boundsMax.z);
             btr = boundsMax;
 
-            fbl = toShadowCaster.MultiplyPoint3x4(fbl);
-            fbr = toShadowCaster.MultiplyPoint3x4(fbr);
-            ftl = toShadowCaster.MultiplyPoint3x4(ftl);
-            ftr = toShadowCaster.MultiplyPoint3x4(ftr);
-            bbl = toShadowCaster.MultiplyPoint3x4(bbl);
-            bbr = toShadowCaster.MultiplyPoint3x4(bbr);
-            btl = toShadowCaster.MultiplyPoint3x4(btl);
-            btr = toShadowCaster.MultiplyPoint3x4(btr);
+            fbl = worldToShadow.MultiplyPoint3x4(fbl);
+            fbr = worldToShadow.MultiplyPoint3x4(fbr);
+            ftl = worldToShadow.MultiplyPoint3x4(ftl);
+            ftr = worldToShadow.MultiplyPoint3x4(ftr);
+            bbl = worldToShadow.MultiplyPoint3x4(bbl);
+            bbr = worldToShadow.MultiplyPoint3x4(bbr);
+            btl = worldToShadow.MultiplyPoint3x4(btl);
+            btr = worldToShadow.MultiplyPoint3x4(btr);
 
             // TODO: Don't GCAlloc
-            float minX = Mathf.Min(fbl.x, fbr.x, ftl.x, ftr.x, bbl.x, bbr.x, btl.x, btr.x);
-            float maxX = Mathf.Max(fbl.x, fbr.x, ftl.x, ftr.x, bbl.x, bbr.x, btl.x, btr.x);
-            float minY = Mathf.Min(fbl.y, fbr.y, ftl.y, ftr.y, bbl.y, bbr.y, btl.y, btr.y);
-            float maxY = Mathf.Max(fbl.y, fbr.y, ftl.y, ftr.y, bbl.y, bbr.y, btl.y, btr.y);
-            float minZ = Mathf.Min(fbl.z, fbr.z, ftl.z, ftr.z, bbl.z, bbr.z, btl.z, btr.z);
-            float maxZ = Mathf.Max(fbl.z, fbr.z, ftl.z, ftr.z, bbl.z, bbr.z, btl.z, btr.z);
+            float minX = Mathf.Min(fbl.x, Mathf.Min(fbr.x, Mathf.Min(ftl.x, Mathf.Min(ftr.x, Mathf.Min(bbl.x, Mathf.Min(bbr.x, Mathf.Min(btl.x, btr.x)))))));
+            float maxX = Mathf.Max(fbl.x, Mathf.Max(fbr.x, Mathf.Max(ftl.x, Mathf.Max(ftr.x, Mathf.Max(bbl.x, Mathf.Max(bbr.x, Mathf.Max(btl.x, btr.x)))))));
+            float minY = Mathf.Min(fbl.y, Mathf.Min(fbr.y, Mathf.Min(ftl.y, Mathf.Min(ftr.y, Mathf.Min(bbl.y, Mathf.Min(bbr.y, Mathf.Min(btl.y, btr.y)))))));
+            float maxY = Mathf.Max(fbl.y, Mathf.Max(fbr.y, Mathf.Max(ftl.y, Mathf.Max(ftr.y, Mathf.Max(bbl.y, Mathf.Max(bbr.y, Mathf.Max(btl.y, btr.y)))))));
+            float minZ = Mathf.Min(fbl.z, Mathf.Min(fbr.z, Mathf.Min(ftl.z, Mathf.Min(ftr.z, Mathf.Min(bbl.z, Mathf.Min(bbr.z, Mathf.Min(btl.z, btr.z)))))));
+            float maxZ = Mathf.Max(fbl.z, Mathf.Max(fbr.z, Mathf.Max(ftl.z, Mathf.Max(ftr.z, Mathf.Max(bbl.z, Mathf.Max(bbr.z, Mathf.Max(btl.z, btr.z)))))));
 
             Vector3 min = new Vector3(minX, minY, minZ);
             Vector3 max = new Vector3(maxX, maxY, maxZ);
@@ -163,15 +166,18 @@ namespace ColourMath.Rendering
                 projectionMatrix = Matrix4x4.Perspective(fov, aspect, nearClip, farClip);
             }
 
-            // Third row needs to be inverted when sending off to the Graphics API
-            if (ortho)
-                toShadowCaster.SetRow(2, -toShadowCaster.GetRow(2));
+            // Third row (Z) needs to be inverted when sending off to the Graphics API,
+            // which is facing opposite Z
+            worldToShadow.SetRow(2, -worldToShadow.GetRow(2));
 
-            viewMatrix = toShadowCaster;
+            viewMatrix = worldToShadow;
             projMatrix = projectionMatrix;
             distance = 1f / farClip;
         }
 
+        /// <summary>
+        /// Draws debug visuals for world-space and shadow-space AABB extents
+        /// </summary>
         static void DebugShadowFrustum(
             float minX, float minY, float minZ, 
             float maxX, float maxY, float maxZ,
@@ -313,10 +319,7 @@ namespace ColourMath.Rendering
             out Matrix4x4 proj,
             out float d)
         {
-            SetupShadowCamera(index, shadowLight, renderer, out view, out proj, out d);
-            //view = shadowCamera.worldToCameraMatrix;
-            //proj = shadowCamera.projectionMatrix;
-            //d = 1f / shadowCamera.farClipPlane;
+            CalculateShadowMatrices(index, shadowLight, renderer, out view, out proj, out d);
         }
     }
 }
