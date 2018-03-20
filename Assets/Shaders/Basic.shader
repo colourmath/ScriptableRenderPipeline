@@ -37,6 +37,14 @@ Shader "ColourMath/Basic"
 		_CubeTex("Reflection", CUBE) = "black" {}
 		_ShadowFalloff("Shadow Falloff", Float) = 1
 		_ShadowIntensity("Shadow Intensity", Float) = 1
+
+		[Enum(UnityEngine.Rendering.BlendMode)]
+		__BlendSrc("Blend Src", Float) = 5
+		[Enum(UnityEngine.Rendering.BlendMode)]
+		__BlendDst("Blend Dst", Float) = 10
+
+		[Enum(UnityEngine.Rendering.CompareFunction)]
+		__ZTest("Z Test", Float) = 0
 	}
 
 	CGINCLUDE
@@ -44,17 +52,18 @@ Shader "ColourMath/Basic"
 		#pragma shader_feature SPEC_POW_2 SPEC_POW_4 SPEC_POW_8 SPEC_POW_16
 		#pragma multi_compile __ LIGHTMAP_ON
 		#pragma multi_compile __ SHADOW_PROJECTION_ORTHO
-		#pragma shader_feature __ OVERRIDE_CUBE_REFLECTION_ON
-		#pragma debug
+		#pragma shader_feature __ OVERRIDE_LOCAL_CUBEMAP
+		//#pragma debug // Uncomment to get better debug info in compiled shaders
 		#define SHADOW_MASK_BITWISE // Use '&' bitwise AND operator to do shadowmask
+		#define RECEIVE_SHADOWS
 	ENDCG
-
 
 	SubShader
 	{
 		Tags { "Queue"="Geometry" "RenderType"="Opaque" }
 		LOD 100
 
+		// TODO: This is not used, either remove it or find a purpose for itm maybe Baked objects?
 		Pass
 		{
 			Tags { "LightMode" = "BasePass" }
@@ -66,25 +75,7 @@ Shader "ColourMath/Basic"
 			#define NORMAL_ON
 			#define SPECULAR_ON
 
-			#include "Shared.cginc"
-			
-			
-			ENDCG
-		}
-
-		Pass
-		{
-			Tags { "LightMode" = "Mixed" }
-
-			CGPROGRAM
-			#pragma vertex vert
-			#pragma fragment frag
-
-			#define LIGHTING_MIXED
-			#define NORMAL_ON
-			#define SPECULAR_ON
-
-			#include "Shared.cginc"
+			#include "Common.cginc"
 			
 			ENDCG
 		}
@@ -101,9 +92,85 @@ Shader "ColourMath/Basic"
 			#define NORMAL_ON
 			#define SPECULAR_ON
 
-			#include "Shared.cginc"
+			#include "Common.cginc"
+			
+			ENDCG
+		}
+
+		Pass
+		{
+			Tags { "LightMode" = "DynamicReflective" }
+
+			CGPROGRAM
+			#pragma vertex vert
+			#pragma fragment frag
+
+			#define LIGHTING_DYNAMIC
+			#define NORMAL_ON
+			#define SPECULAR_ON
+			#define CUBE_REFLECTIONS
+
+			#include "Common.cginc"
+			
+			ENDCG
+		}
+
+		Pass
+		{
+			Tags { "LightMode" = "Mixed" }
+
+			CGPROGRAM
+			#pragma vertex vert
+			#pragma fragment frag
+
+			#define LIGHTING_MIXED
+			#define NORMAL_ON
+			#define SPECULAR_ON
+
+			#include "Common.cginc"
+			
+			ENDCG
+		}
+
+		Pass
+		{
+			Tags { "LightMode" = "MixedReflective" }
+
+			CGPROGRAM
+			#pragma vertex vert
+			#pragma fragment frag
+
+			#define LIGHTING_MIXED
+			#define NORMAL_ON
+			#define SPECULAR_ON
+			#define CUBE_REFLECTIONS
+
+			#include "Common.cginc"
+			
+			ENDCG
+		}
+
+		Pass
+		{
+			Tags { "LightMode" = "Transparent" }
+
+			Blend [__BlendSrc] [__BlendDst]
+			ZTest [__ZTest]
+			ZWrite Off
+
+			CGPROGRAM
+			#pragma vertex vert
+			#pragma fragment frag
+
+			#define LIGHTING_DYNAMIC
+			#define NORMAL_ON
+			#define SPECULAR_ON
+			#define CUBE_REFLECTIONS
+
+			#include "Common.cginc"
 			
 			ENDCG
 		}
 	}
+	CustomEditor "ColourMath.BasicShaderGUI"
 }

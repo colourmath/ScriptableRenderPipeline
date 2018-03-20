@@ -131,7 +131,6 @@ namespace ColourMath.Rendering
             btl = worldToShadow.MultiplyPoint3x4(btl);
             btr = worldToShadow.MultiplyPoint3x4(btr);
 
-            // TODO: Don't GCAlloc
             float minX = Mathf.Min(fbl.x, Mathf.Min(fbr.x, Mathf.Min(ftl.x, Mathf.Min(ftr.x, Mathf.Min(bbl.x, Mathf.Min(bbr.x, Mathf.Min(btl.x, btr.x)))))));
             float maxX = Mathf.Max(fbl.x, Mathf.Max(fbr.x, Mathf.Max(ftl.x, Mathf.Max(ftr.x, Mathf.Max(bbl.x, Mathf.Max(bbr.x, Mathf.Max(btl.x, btr.x)))))));
             float minY = Mathf.Min(fbl.y, Mathf.Min(fbr.y, Mathf.Min(ftl.y, Mathf.Min(ftr.y, Mathf.Min(bbl.y, Mathf.Min(bbr.y, Mathf.Min(btl.y, btr.y)))))));

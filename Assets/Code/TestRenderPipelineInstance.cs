@@ -144,7 +144,7 @@ namespace ColourMath.Rendering
                     continue;
 
                 CullResults cull = CullResults.Cull(ref cullingParams, context);
-
+                
                 Light shadowLight;
 
                 List<VisibleLight> visibleLights = cull.visibleLights;
@@ -174,13 +174,14 @@ namespace ColourMath.Rendering
                 CommandBufferPool.Release(cmd);
 
                 // Render objects with Lightmaps first. 
-                // Mixed -Lights should contribute specular but not diffuse
+                // Mixed Lights should contribute specular but not diffuse
 
                 settings = new DrawRendererSettings(camera, ShaderLib.Passes.Mixed);
                 settings.sorting.flags = SortFlags.CommonOpaque;
                 settings.flags = DrawRendererFlags.EnableDynamicBatching;
-                settings.rendererConfiguration = RendererConfiguration.PerObjectLightmaps;
-                // TODO: Circle back when it's time to take on probes
+                settings.rendererConfiguration = 
+                    RendererConfiguration.PerObjectLightmaps | 
+                    RendererConfiguration.PerObjectLightProbe;
                 
                 filterSettings =
                     new FilterRenderersSettings(true)
@@ -192,12 +193,24 @@ namespace ColourMath.Rendering
 
                 context.DrawRenderers(cull.visibleRenderers, ref settings, filterSettings);
 
-                // Next render dynamic objects
+                // Mixed Lights with Reflectives
+                settings = new DrawRendererSettings(camera, ShaderLib.Passes.MixedReflective);
+                settings.sorting.flags = SortFlags.CommonOpaque;
+                settings.flags = DrawRendererFlags.EnableDynamicBatching;
+                settings.rendererConfiguration =
+                    RendererConfiguration.PerObjectLightmaps |
+                    RendererConfiguration.PerObjectLightProbe | 
+                    RendererConfiguration.PerObjectReflectionProbes;
+
+                context.DrawRenderers(cull.visibleRenderers, ref settings, filterSettings);
+
+                // Render Dynamic Objects
                 settings = new DrawRendererSettings(camera, ShaderLib.Passes.Dynamic);
                 settings.sorting.flags = SortFlags.CommonOpaque;
                 settings.flags = DrawRendererFlags.EnableDynamicBatching;
-                settings.rendererConfiguration = RendererConfiguration.PerObjectLightmaps;
-                // TODO: Circle back when it's time to take on probes
+                settings.rendererConfiguration =
+                    RendererConfiguration.PerObjectLightmaps |
+                    RendererConfiguration.PerObjectLightProbe;
 
                 filterSettings =
                     new FilterRenderersSettings(true)
@@ -209,13 +222,25 @@ namespace ColourMath.Rendering
 
                 context.DrawRenderers(cull.visibleRenderers, ref settings, filterSettings);
 
+                // Render Dynamic Objects
+                settings = new DrawRendererSettings(camera, ShaderLib.Passes.DynamicReflective);
+                settings.sorting.flags = SortFlags.CommonOpaque;
+                settings.flags = DrawRendererFlags.EnableDynamicBatching;
+                settings.rendererConfiguration =
+                    RendererConfiguration.PerObjectLightmaps |
+                    RendererConfiguration.PerObjectLightProbe |
+                    RendererConfiguration.PerObjectReflectionProbes;
+
+                context.DrawRenderers(cull.visibleRenderers, ref settings, filterSettings);
+
                 // Draw skybox
                 context.DrawSkybox(camera);
 
-                // Draw transparent objects using BasicPass shader pass
-                //settings.sorting.flags = SortFlags.CommonTransparent;
-                //filterSettings.renderQueueRange = RenderQueueRange.transparent;
-                //context.DrawRenderers(cull.visibleRenderers, ref settings, filterSettings);
+                // Render Dynamic Objects
+                settings = new DrawRendererSettings(camera, ShaderLib.Passes.Transparent);
+                settings.sorting.flags = SortFlags.CommonTransparent;
+                filterSettings.renderQueueRange = RenderQueueRange.transparent;
+                context.DrawRenderers(cull.visibleRenderers, ref settings, filterSettings);
 
                 context.Submit();
             }

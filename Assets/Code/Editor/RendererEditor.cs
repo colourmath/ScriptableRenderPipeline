@@ -29,11 +29,18 @@ using ColourMath.Rendering;
 
 namespace ColourMath
 {
+    // TODO: May need to do specific Renderer stuff
 
-    [CustomEditorForRenderPipeline(typeof(MeshRenderer), typeof(TestRenderPipeline), true)]
+    [CanEditMultipleObjects, CustomEditorForRenderPipeline(typeof(MeshRenderer), typeof(TestRenderPipeline), true)]
     public class MeshRendererEditor : RendererEditor
     {
+        // Just extends Renderer Editor
+    }
 
+    [CanEditMultipleObjects, CustomEditorForRenderPipeline(typeof(SkinnedMeshRenderer), typeof(TestRenderPipeline), true)]
+    public class SkinnedMeshRendererEditor : RendererEditor
+    {
+        // Just extends Renderer Editor
     }
 
     public class RendererEditor : Editor
@@ -65,8 +72,6 @@ namespace ColourMath
                 if (renderer.lightmapIndex != -1)
                     prop_renderingLayerMask.intValue = 
                         (int) (prop_renderingLayerMask.intValue |= (int) ShaderLib.RenderLayers.BakedLightmaps);
-
-
 
                 serializedObject.ApplyModifiedProperties();
             }

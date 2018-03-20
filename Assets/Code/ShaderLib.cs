@@ -77,23 +77,47 @@ namespace ColourMath.Rendering
                 public static int id_TempTex;
 
             }
-
+            
             public static class Renderer
             {
                 public const string SHADOW_INDEX =      "shadowIndex";
+            }
+
+            public static class Material
+            {
+                public const string _MainTex =          "_MainTex";
+                public const string _Color =            "_Color";
+                public const string _NormalTex =        "_NormalTex";
+                public const string _SpecColor =        "_SpecColor";
+                public const string _CubeTex =          "_CubeTex";
+                public const string SPEC =              "SPEC";
+
+                public const string BlendSrc =          "__BlendSrc";
+                public const string BlendDst =          "__BlendDst";
+                public const string ZTest =             "__ZTest";
+
+
+
             }
         }
 
         public static class Passes
         {
+            // Curently unused
             public const string BASE_PASS = "BasePass";
             public static ShaderPassName Base { get { return new ShaderPassName(BASE_PASS); } }
 
             public const string MIXED = "Mixed";
             public static ShaderPassName Mixed { get { return new ShaderPassName(MIXED); } }
 
+            public const string MIXED_REFLECTIVE = "MixedReflective";
+            public static ShaderPassName MixedReflective { get { return new ShaderPassName(MIXED_REFLECTIVE); } }
+
             public const string DYNAMIC = "Dynamic";
             public static ShaderPassName Dynamic { get { return new ShaderPassName(DYNAMIC); } }
+
+            public const string DYNAMIC_REFLECTIVE = "DynamicReflective";
+            public static ShaderPassName DynamicReflective { get { return new ShaderPassName(DYNAMIC_REFLECTIVE); } }
 
             public const string TRANSPARENT = "Transparent";
             public static ShaderPassName Transparent { get { return new ShaderPassName(TRANSPARENT); } }
@@ -103,7 +127,27 @@ namespace ColourMath.Rendering
 
         public static class Keywords
         {
-            public const string SHADOW_PROJECTION_ORTHO = "SHADOW_PROJECTION_ORTHO";
+            public const string SHADOW_PROJECTION_ORTHO =   "SHADOW_PROJECTION_ORTHO";
+
+            public const string NORMAL_MAP =                "NORMAL_MAP";
+            public const string OVERRIDE_LOCAL_CUBEMAP =    "OVERRIDE_LOCAL_CUBEMAP";
+            public const string CUBE_REFLECTIONS =          "CUBE_REFLECTIONS";
+
+            // TODO: Support turning specular off entirely
+            public const string SPEC_OFF =                  "SPEC_OFF";
+            public const string SPEC_POW2 =                 "SPEC_POW_2";
+            public const string SPEC_POW4 =                 "SPEC_POW_4";
+            public const string SPEC_POW8 =                 "SPEC_POW_8";
+            public const string SPEC_POW16 =                "SPEC_POW_16";
+
+            public static string[] SPEC_KEYWORDS = new string[]
+            {
+                SPEC_POW2, SPEC_POW4, SPEC_POW8, SPEC_POW16
+            };
+            public static string[] SPEC_LABELS = new string[]
+            {
+                "2", "4", "8", "16"
+            };
         }
     }
 }
