@@ -63,6 +63,9 @@ float4 _MainTex_ST;
 half4 _SpecColor;
 half4 _Color;
 
+// TODO: Emission
+half4 _EmissiveColor;
+
 v2f vert (a2v v)
 {
 	v2f o;
@@ -148,7 +151,7 @@ v2f vert (a2v v)
 		float3 viewDir = TransformDirectionTBN(tbn[0], tbn[1], tbn[2], FORWARD.xyz);
 		o.viewDir.xyz = NORMALIZE(viewDir, SQUARED_DIST(viewDir));
 		// Pack Fog coordinate into our view direction interpolator
-		o.viewDir.w = saturate((-viewPos.z - FOG_NEAR) / (FOG_FAR - FOG_NEAR)); 
+		o.viewDir.w = CALCULATE_LINEAR_FOG(-viewPos.z); 
 
 		o.lighting[0] = lighting0;
 		o.lighting[1] = lighting1;

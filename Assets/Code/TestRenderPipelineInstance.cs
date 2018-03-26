@@ -103,7 +103,7 @@ namespace ColourMath.Rendering
             shadowRTID = new RenderTargetIdentifier(ShaderLib.Variables.Global.id_ShadowTex);
             tempRTID = new RenderTargetIdentifier(ShaderLib.Variables.Global.id_TempTex);
 
-            shadowMaterial = new Material(Shader.Find("Hidden/Dynamic Shadow"));
+            shadowMaterial = new Material(ShaderLib.Shaders.DynamicShadow);
         }
 
         public override void Render(ScriptableRenderContext context, Camera[] cameras)
@@ -146,6 +146,7 @@ namespace ColourMath.Rendering
                 CullResults cull = CullResults.Cull(ref cullingParams, context);
                 
                 Light shadowLight;
+
 
                 List<VisibleLight> visibleLights = cull.visibleLights;
                 SetupLightBuffers(
@@ -236,8 +237,17 @@ namespace ColourMath.Rendering
                 // Draw skybox
                 context.DrawSkybox(camera);
 
-                // Render Dynamic Objects
-                settings = new DrawRendererSettings(camera, ShaderLib.Passes.Transparent);
+                // Transparency actually has 2 passes here
+                // 1) ZPrime is a special Pass that can be disabled, it only writes Depth
+                // 2) Transparent Pass for writing transparent colour
+                // TODO: Support more special types of transparency for things like glass
+
+                // Note:    Some additional uses for multiple Passes could be rendering 
+                //          backfaces and then front faces for a better 2-sided sorting.
+                settings = new DrawRendererSettings(camera, ShaderLib.Passes.ZPrime);
+                settings.SetShaderPassName(
+                    ShaderLib.Passes.TRANSPARENT_PASS_INDEX, 
+                    ShaderLib.Passes.Transparent);
                 settings.sorting.flags = SortFlags.CommonTransparent;
                 filterSettings.renderQueueRange = RenderQueueRange.transparent;
                 context.DrawRenderers(cull.visibleRenderers, ref settings, filterSettings);
@@ -355,6 +365,7 @@ namespace ColourMath.Rendering
             Vector4[] lightPositions = new Vector4[maxLights];
             Vector4[] lightAtten = new Vector4[maxLights];
 
+            // TODO: A non-GC sort will be clutch here.
             lights.Sort(lightcomparer);
 
             for (int i = 0; i < lights.Count; i++)

@@ -6,9 +6,9 @@ Material:
   m_ObjectHideFlags: 0
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
-  m_Name: White
+  m_Name: ColourMath_BasicTransparent
   m_Shader: {fileID: 4800000, guid: 19cfaf8e26ab1eb48bef8032a1eaaa92, type: 3}
-  m_ShaderKeywords: SPEC_POW_2
+  m_ShaderKeywords: SPEC_POW_8
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -65,7 +65,8 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Floats:
-    - SPEC: 0
+    - OVERRIDE_FOG: 0
+    - SPEC: 2
     - _BumpScale: 1
     - _Cutoff: 0.5
     - _DetailNormalMapScale: 1
@@ -86,8 +87,11 @@ Material:
     - _ZWrite: 1
     - __BlendDst: 10
     - __BlendSrc: 5
-    - __ZTest: 0
+    - __CullMode: 2
+    - __ZTest: 4
+    - __ZWrite: 1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 0.6}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _SpecColor: {r: 0.01886791, g: 0.01886791, b: 0.01886791, a: 1}
+    - _LocalFogColor: {r: 0, g: 0, b: 0, a: 0}
+    - _SpecColor: {r: 0.23584908, g: 0.23584908, b: 0.23584908, a: 1}

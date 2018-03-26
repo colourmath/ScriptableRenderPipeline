@@ -45,6 +45,14 @@ Shader "ColourMath/Basic"
 
 		[Enum(UnityEngine.Rendering.CompareFunction)]
 		__ZTest("Z Test", Float) = 0
+		[ZPrime]
+		__ZWrite("Z Prime", Float) = 0
+		[Enum(UnityEngine.Rendering.CullMode)]
+		__CullMode("Cull Mode",Float) = 2
+
+		[Toggle]
+		OVERRIDE_FOG("Override Fog", Float) = 0
+		_LocalFogColor("Local Fog Color", Color) = (0,0,0,0)
 	}
 
 	CGINCLUDE
@@ -53,7 +61,10 @@ Shader "ColourMath/Basic"
 		#pragma multi_compile __ LIGHTMAP_ON
 		#pragma multi_compile __ SHADOW_PROJECTION_ORTHO
 		#pragma shader_feature __ OVERRIDE_LOCAL_CUBEMAP
+		#pragma shader_feature __ OVERRIDE_FOG_ON
 		//#pragma debug // Uncomment to get better debug info in compiled shaders
+
+		// The following defines are applied globally.
 		#define SHADOW_MASK_BITWISE // Use '&' bitwise AND operator to do shadowmask
 		#define RECEIVE_SHADOWS
 	ENDCG
@@ -88,6 +99,8 @@ Shader "ColourMath/Basic"
 			#pragma vertex vert
 			#pragma fragment frag
 
+			// Note: Hardcoded defines allow us to reuse large chunks of code without
+			// paying for a variant. Since this is all handled on a per-Pass-basis anyway.
 			#define LIGHTING_DYNAMIC
 			#define NORMAL_ON
 			#define SPECULAR_ON
@@ -152,11 +165,21 @@ Shader "ColourMath/Basic"
 
 		Pass
 		{
+			Tags { "LightMode" = "ZPrime" }
+			ZWrite On
+			ZTest [__ZTest]
+			Cull [__CullMode]
+			ColorMask 0
+		}
+
+		Pass
+		{
 			Tags { "LightMode" = "Transparent" }
 
 			Blend [__BlendSrc] [__BlendDst]
 			ZTest [__ZTest]
 			ZWrite Off
+			Cull [__CullMode]
 
 			CGPROGRAM
 			#pragma vertex vert

@@ -85,7 +85,7 @@ namespace ColourMath.Rendering
             bool ortho = 
                 l.type == LightType.Directional || l.type == LightType.Area;
 
-            // TODO: Calculate this manually, but for now just use a Unity Camera to do the heavy lifting.
+            // Calculate a Shadow 'Camera' manually
             if (ortho)
             {
                 forward = l.transform.forward;

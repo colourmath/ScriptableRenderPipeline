@@ -32,6 +32,19 @@ namespace ColourMath.Rendering
 {
     public static class ShaderLib
     {
+        public static class Shaders
+        {
+            const string DYNAMIC_SHADOW = "Hidden/Dynamic Shadow";
+            public static Shader DynamicShadow { get { return SafeFind(DYNAMIC_SHADOW); } }
+            public static Shader SafeFind(string shaderName)
+            {
+                Shader shader = Shader.Find(shaderName);
+                if (shader == null)
+                    Debug.LogWarningFormat("Couldn't locate Shader. '{0}'.");
+                return shader;
+            }
+        }
+
         public static class RenderLayers
         {
             public const uint Nothing = 0;
@@ -71,8 +84,6 @@ namespace ColourMath.Rendering
 
                 public static int id_ShadowTex;
 
-
-
                 public const string TEMP_TEX =          "_TempTex";
                 public static int id_TempTex;
 
@@ -92,12 +103,14 @@ namespace ColourMath.Rendering
                 public const string _CubeTex =          "_CubeTex";
                 public const string SPEC =              "SPEC";
 
+                public const string OVERRIDE_FOG =      "OVERRIDE_FOG";
+                public const string _LocalFogColor =    "_LocalFogColor";
+
                 public const string BlendSrc =          "__BlendSrc";
                 public const string BlendDst =          "__BlendDst";
                 public const string ZTest =             "__ZTest";
-
-
-
+                public const string ZWrite =            "__ZWrite";
+                public const string CullMode =          "__CullMode";
             }
         }
 
@@ -122,6 +135,21 @@ namespace ColourMath.Rendering
             public const string TRANSPARENT = "Transparent";
             public static ShaderPassName Transparent { get { return new ShaderPassName(TRANSPARENT); } }
 
+            public const string ZPRIME = "ZPrime";
+            public static ShaderPassName ZPrime { get { return new ShaderPassName(ZPRIME); } }
+
+            /// <summary>
+            /// The Pass Index of ZPrime
+            /// </summary>
+            public const int ZPRIME_PASS_INDEX =        0;
+            /// <summary>
+            /// The Pass Index of Transparent
+            /// </summary>
+            public const int TRANSPARENT_PASS_INDEX =   1;
+
+            /// <summary>
+            /// The Pass that gets invoked by the Shadow CommandBuffer
+            /// </summary>
             public const int SHADOW_PASS_ID = 0;
         }
 
@@ -129,9 +157,12 @@ namespace ColourMath.Rendering
         {
             public const string SHADOW_PROJECTION_ORTHO =   "SHADOW_PROJECTION_ORTHO";
 
+            // TODO: Support Optional NormalMap for performance
             public const string NORMAL_MAP =                "NORMAL_MAP";
             public const string OVERRIDE_LOCAL_CUBEMAP =    "OVERRIDE_LOCAL_CUBEMAP";
             public const string CUBE_REFLECTIONS =          "CUBE_REFLECTIONS";
+
+            public const string OVERRIDE_FOG =              "OVERRIDE_FOG_ON";
 
             // TODO: Support turning specular off entirely
             public const string SPEC_OFF =                  "SPEC_OFF";

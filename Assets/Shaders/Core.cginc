@@ -193,4 +193,6 @@ float2 LightmapTexcoord(float2 texcoord)
 	return texcoord.xy * unity_LightmapST.xy + unity_LightmapST.zw;
 }
 
+#define CALCULATE_LINEAR_FOG(z) saturate( (z - FOG_NEAR) / (FOG_FAR - FOG_NEAR) )
+
 #endif // COLOURMATH_CORE_INCLUDED

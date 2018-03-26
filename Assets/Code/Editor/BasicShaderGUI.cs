@@ -45,6 +45,18 @@ namespace ColourMath
             RenderQueue.Transparent
         };
 
+        public override void AssignNewShaderToMaterial(Material material, Shader oldShader, Shader newShader)
+        {
+            Debug.Log("Assign new Shader");
+            base.AssignNewShaderToMaterial(material, oldShader, newShader);
+            MaterialProperty prop = MaterialEditor.GetMaterialProperty(
+                new Object[1] { material },
+                MaterialProps.ZWrite);
+
+            if (prop != null)
+                material.SetShaderPassEnabled(Passes.ZPRIME, prop.floatValue != 0);
+        }
+
         public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] properties)
         {
             //base.OnGUI(materialEditor, properties);
@@ -66,6 +78,11 @@ namespace ColourMath
             MaterialProperty _CubeTex = MaterialEditor.GetMaterialProperty(
                 materials, MaterialProps._CubeTex);
 
+            MaterialProperty OVERRIDE_FOG = MaterialEditor.GetMaterialProperty(
+                materials, MaterialProps.OVERRIDE_FOG);
+            MaterialProperty _LocalFogColor = MaterialEditor.GetMaterialProperty(
+                materials, MaterialProps._LocalFogColor);
+
             // Draw Properties
             DrawTransparencyMode(materialEditor, materials); // Transparency Mode
 
@@ -84,8 +101,44 @@ namespace ColourMath
             DrawSpecularControl(materials, SPEC);
             materialEditor.ShaderProperty(_SpecColor, _SpecColor.displayName);
 
-
             DrawReflectionControls(materialEditor, materials, _CubeTex);
+
+            DrawLocalFogControls(materialEditor, materials, OVERRIDE_FOG, _LocalFogColor);
+        }
+
+        void DrawLocalFogControls(
+            MaterialEditor materialEditor, 
+            Object[] materials,
+            MaterialProperty OVERRIDE_FOG,
+            MaterialProperty _LocalFogColor)
+        {
+            GUILayout.Label("Fog Settings", EditorStyles.boldLabel);
+
+            int numEnabled = 0;
+            foreach (Material m in materials)
+            {
+                bool e = m.IsKeywordEnabled(Keywords.OVERRIDE_FOG);
+                if (e) numEnabled++;
+            }
+
+            bool someEnabled = numEnabled > 0;
+            bool hasMixed = someEnabled && numEnabled < materials.Length;
+
+            EditorGUI.showMixedValue = hasMixed;
+
+            EditorGUI.BeginChangeCheck();
+            {
+                materialEditor.ShaderProperty(OVERRIDE_FOG, OVERRIDE_FOG.displayName);
+            }
+            if (EditorGUI.EndChangeCheck())
+            {
+                // This should hopefully already be handled.
+            }
+
+            if (OVERRIDE_FOG.floatValue == 1 && !OVERRIDE_FOG.hasMixedValue) // enabled, not mixed
+            {
+                materialEditor.ShaderProperty(_LocalFogColor, _LocalFogColor.displayName);
+            }
         }
 
         void DrawTransparencyMode(MaterialEditor materialEditor, Object[] materials)
@@ -126,7 +179,7 @@ namespace ColourMath
             EditorGUI.showMixedValue = false;
             EditorGUILayout.Space();
 
-            if(index > 0)
+            if(index > 0) // Transparent?
             {
                 MaterialProperty BlendSrc = MaterialEditor.GetMaterialProperty(
                     materials, MaterialProps.BlendSrc);
@@ -134,11 +187,17 @@ namespace ColourMath
                     materials, MaterialProps.BlendDst);
                 MaterialProperty ZTest = MaterialEditor.GetMaterialProperty(
                     materials, MaterialProps.ZTest);
+                MaterialProperty ZWrite = MaterialEditor.GetMaterialProperty(
+                    materials, MaterialProps.ZWrite);
+                MaterialProperty CullMode = MaterialEditor.GetMaterialProperty(
+                    materials, MaterialProps.CullMode);
 
                 GUILayout.Label("Transparent Properties",EditorStyles.boldLabel);
                 materialEditor.ShaderProperty(BlendSrc, BlendSrc.displayName);
                 materialEditor.ShaderProperty(BlendDst, BlendDst.displayName);
                 materialEditor.ShaderProperty(ZTest, ZTest.displayName);
+                materialEditor.ShaderProperty(ZWrite, ZWrite.displayName);
+                materialEditor.ShaderProperty(CullMode, CullMode.displayName);
             }
         }
 
@@ -162,6 +221,12 @@ namespace ColourMath
             }
             if(EditorGUI.EndChangeCheck())
             {
+                // The reason why we disable both Reflective Passes here is that
+                // we can't be sure whether or not a given object will be baked or not.
+                // That is actually handled by the Renderer itself, as it will receive the 
+                // renderingLayerMask used to enabled mixed vs. dynamic lighting.
+                // Considering a Material could be shared across static/non-static geometry
+                // this should prove to be more efficient than a variant.
                 if (cubeReflections)
                 {
                     // enable reflective passes

@@ -94,7 +94,13 @@ CBUFFER_END
 
 #define FOG_NEAR				fogParams.x
 #define FOG_FAR					fogParams.y
-#define FOG_COLOR				fogColor.rgb
+
+#if defined(OVERRIDE_FOG_ON)
+	fixed4 _LocalFogColor;		// This comes from Material
+	#define FOG_COLOR			_LocalFogColor.rgb
+#else
+	#define FOG_COLOR			fogColor.rgb
+#endif
 
 CBUFFER_START(ShadowData)
 	sampler2D shadowTexture;

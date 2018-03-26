@@ -36,12 +36,22 @@ Shader "ColourMath/Transparent"
 
 		[Enum(UnityEngine.Rendering.CompareFunction)]
 		__ZTest("Z Test", Float) = 0
+
+		[ZPrime]
+		__ZWrite("Z Prime", Float) = 0
+
+		[Enum(UnityEngine.Rendering.CullMode)]
+		__CullMode("Cull Mode",Float) = 2
+
+		[Header(Fog Settings)]
+		[Toggle]
+		OVERRIDE_FOG("Override Fog", Float) = 0
+		_LocalFogColor("Local Fog Color", Color) = (0,0,0,0)
 	}
 
 	CGINCLUDE
 		#pragma target 2.0
-		#pragma shader_feature SPEC_POW_2 SPEC_POW_4 SPEC_POW_8 SPEC_POW_16
-		#pragma shader_feature __ OVERRIDE_LOCAL_CUBEMAP
+		#pragma shader_feature __ OVERRIDE_FOG_ON
 	ENDCG
 
 	SubShader
@@ -51,19 +61,25 @@ Shader "ColourMath/Transparent"
 
 		Pass
 		{
+			Tags { "LightMode" = "ZPrime" }
+			ZWrite On
+			ZTest [__ZTest]
+			Cull [__CullMode]
+			ColorMask 0
+		}
+
+		Pass
+		{
 			Tags { "LightMode" = "Transparent" }
 
 			Blend [__BlendSrc] [__BlendDst]
 			ZTest [__ZTest]
 			ZWrite Off
+			Cull [__CullMode]
+
 			CGPROGRAM
 			#pragma vertex vert
 			#pragma fragment frag
-
-			#define LIGHTING_DYNAMIC
-			#define NORMAL_ON
-			#define SPECULAR_ON
-			#define CUBE_REFLECTIONS
 
 			#include "Core.cginc"
 
@@ -77,7 +93,7 @@ Shader "ColourMath/Transparent"
 			struct v2f
 			{
 				float4 vertex : SV_POSITION;
-				half2 uv : TEXCOORD0;
+				half3 uv : TEXCOORD0;
 				half4 color : COLOR0;
 			};
 
@@ -90,14 +106,17 @@ Shader "ColourMath/Transparent"
 			{
 				v2f o;
 				o.vertex = UnityObjectToClipPos(v.vertex);
-				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+				o.uv.xy = TRANSFORM_TEX(v.uv, _MainTex);
+				float3 viewPos = UnityObjectToViewPos(v.vertex).xyz;
+				o.uv.z = CALCULATE_LINEAR_FOG(-viewPos.z); 
 				o.color = v.color * _Color;
 				return o;
 			}
 
 			fixed4 frag(v2f i) : SV_Target
 			{
-				fixed4 c = tex2D(_MainTex, i.uv) * i.color;
+				fixed4 c = tex2D(_MainTex, i.uv.xy) * i.color;
+				c.rgb = lerp(c.rgb, FOG_COLOR, i.uv.z);
 				return c;
 			}
 
