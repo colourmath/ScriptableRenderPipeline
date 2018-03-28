@@ -361,9 +361,10 @@ namespace ColourMath.Rendering
             int lightCount = 0;
 
             // Prepare light data
-            Vector4[] lightColors = new Vector4[maxLights];
-            Vector4[] lightPositions = new Vector4[maxLights];
-            Vector4[] lightAtten = new Vector4[maxLights];
+            Vector4[] lightColors =         new Vector4[maxLights];
+            Vector4[] lightPositions =      new Vector4[maxLights];
+            Vector4[] lightAtten =          new Vector4[maxLights];
+            Vector4[] lightSpotDirections = new Vector4[maxLights];
 
             // TODO: A non-GC sort will be clutch here.
             lights.Sort(lightcomparer);
@@ -383,8 +384,12 @@ namespace ColourMath.Rendering
                 // we will be able to multiply out any light data that isn't a mixed light
                 // this will help better with blending on lightmapped objects
                 lightColor.a = vl.light.bakingOutput.lightmapBakeType == LightmapBakeType.Mixed ? 0f : 1f;
+                //if(vl.lightType == LightType.Spot) lightColor *= 2;
                 lightColors[lightCount] = lightColor;
-                
+
+                float sqrRange = vl.range * vl.range;
+                float quadAtten = 25.0f / sqrRange;
+
                 if (vl.lightType == LightType.Directional)
                 {
                     // light position for directional lights is: (-direction, 0)
@@ -403,11 +408,30 @@ namespace ColourMath.Rendering
                     lightAtten[lightCount] = new Vector4(
                         -1, 
                         1, 
-                        25f / (vl.range*vl.range),
-                        vl.range * vl.range);
+                        quadAtten,
+                        sqrRange);
 
                 }
-                else // TODO: Support spot and area
+                else if (vl.lightType == LightType.Spot)
+                {
+                    Vector4 pos = viewMatrix * vl.localToWorld.GetColumn(3);
+                    lightPositions[lightCount] = new Vector4(pos.x, pos.y, pos.z, 1);
+
+                    Vector4 dir = viewMatrix * vl.localToWorld.GetColumn(2);
+                    lightSpotDirections[i] = new Vector4(-dir.x, -dir.y, -dir.z, 0.0f);
+
+                    float radAngle, cosTheta, cosPhi;
+                    radAngle = Mathf.Deg2Rad * vl.light.spotAngle;
+                    cosTheta = Mathf.Cos(radAngle * 0.25f);
+                    cosPhi = Mathf.Cos(radAngle * 0.5f);
+
+                    lightAtten[i] = new Vector4(
+                        cosPhi,
+                        1.0f / (cosTheta - cosPhi),
+                        quadAtten,
+                        sqrRange);
+                }
+                else // TODO: Support area
                 {
                     Debug.LogError(
                         string.Format(
@@ -436,6 +460,9 @@ namespace ColourMath.Rendering
                 cmd.SetGlobalVectorArray(
                     ShaderLib.Variables.Global.LIGHTS_ATTEN,       
                     lightAtten);
+                    cmd.SetGlobalVectorArray(
+                    ShaderLib.Variables.Global.LIGHTS_SPOT_DIRS,
+                    lightSpotDirections);
                 cmd.SetGlobalVector(
                     ShaderLib.Variables.Global.LIGHTS_COUNT,
                     new Vector4(lightCount, 0, 0, 0));

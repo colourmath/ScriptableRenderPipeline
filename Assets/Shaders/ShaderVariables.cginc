@@ -63,12 +63,15 @@
 #endif
 */
 
+#define NUM_LIGHTS 8
+
 // Global Lighting Data
 CBUFFER_START(GlobalLightData)
 	// view-space lighting 
-    fixed4 globalLightColors[8];
-    float4 globalLightPositions[8];
-    float4 globalLightAtten[8];
+    fixed4 globalLightColors[NUM_LIGHTS];
+    float4 globalLightPositions[NUM_LIGHTS];
+    float4 globalLightAtten[NUM_LIGHTS];
+    float4 globalSpotDirections[NUM_LIGHTS];
     int4  globalLightCount;
 CBUFFER_END
 
@@ -76,6 +79,7 @@ CBUFFER_END
 #define LIGHT_POS(id)			globalLightPositions[id]
 #define LIGHT_COLOR(id)			globalLightColors[id]
 #define LIGHT_ATTEN(id)			globalLightAtten[id]
+#define LIGHT_SPOT_DIR(id)		globalSpotDirections[id]
 #define LIGHT_COUNT				globalLightCount.x
 
 CBUFFER_START(EnvironmentData)

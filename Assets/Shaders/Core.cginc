@@ -72,6 +72,19 @@ inline half Pow16(half n)
 	#define POW(n) Pow16(n)
 #endif
 
+inline half CalculateAngularAtten(int index, half3 lightDir)
+{
+	half4 atten = LIGHT_ATTEN(index);
+	half4 spotDir = LIGHT_SPOT_DIR(index);
+
+	half cosOuter = atten.x;
+	half cosRange = atten.y;
+	half cosAng = dot(spotDir.xyz, lightDir);
+	cosAng = max(cosAng, 0.0);
+	half angularAtten = saturate((cosAng - cosOuter) * cosRange);
+	return angularAtten;
+}
+
 inline half3 RadiosityNormalMap(half3 color0, half3 color1, half3 color2, half3 normal)
 {
 	half3 color =
@@ -158,9 +171,11 @@ inline void ComputeLight(
 
 	float sqrDist = SQUARED_DIST(lightDir);
 	lightDir = NORMALIZE(lightDir,sqrDist);
-	lightDir = TRANSFORM_TBN(tbn,lightDir);
 
-	float atten = LINEAR_ATTEN(LIGHT_ATTEN(index).z, sqrDist);
+	float angularAtten = CalculateAngularAtten(index, lightDir);
+
+	lightDir = TRANSFORM_TBN(tbn,lightDir);
+	float atten = LINEAR_ATTEN(LIGHT_ATTEN(index).z, sqrDist) * angularAtten;
 
 	float4 lightColor = LIGHT_COLOR(index);
 	

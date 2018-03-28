@@ -63,6 +63,7 @@ namespace ColourMath.Rendering
                 public const string LIGHTS_POSITION =   "globalLightPositions";
                 public const string LIGHTS_ATTEN =      "globalLightAtten";
                 public const string LIGHTS_COUNT =      "globalLightCount";
+                public const string LIGHTS_SPOT_DIRS =  "globalSpotDirections";
 
                 // Enviroment CBuffer
                 public const string AMBIENT_SKY =       "ambientLightSky";
