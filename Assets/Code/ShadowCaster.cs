@@ -68,6 +68,11 @@ namespace ColourMath.Rendering
             out Matrix4x4 projMatrix,
             out float distance)
         {
+            // TODO: Spot Shadows are a bit weird with this technique as it stands,
+            //       since it is only rendering from a single perspective.
+            //       A path forward might be something off-axis so that we can preserve
+            //       texel density like from the other sources?
+
             float padding = casters[index].padding;
 
             float aspect = 1f;
@@ -99,8 +104,17 @@ namespace ColourMath.Rendering
             else
             {
                 position = l.transform.position;
-                forward = r.transform.position - position;
-                rotation = Quaternion.LookRotation(forward, Vector3.up);
+
+                if(l.type == LightType.Point)
+                {
+                    forward = l.transform.forward;
+                    rotation = Quaternion.LookRotation(forward, Vector3.up);
+                }
+                else if(l.type == LightType.Spot)
+                {
+                    forward = l.transform.forward;
+                    rotation = l.transform.rotation;
+                }
             }
 
             // Our world-to-shadow matrix is just the inverse of our TRS
@@ -161,8 +175,16 @@ namespace ColourMath.Rendering
             }
             else
             {
-                fov = Vector3.Angle(max, min);
-                projectionMatrix = Matrix4x4.Perspective(fov, aspect, nearClip, farClip);
+                if(l.type == LightType.Point)
+                {
+                    fov = Vector3.Angle(max, min);
+                    projectionMatrix = Matrix4x4.Perspective(fov, aspect, nearClip, farClip);
+                }
+                else if(l.type == LightType.Spot)
+                {
+                    fov = l.spotAngle;
+                    projectionMatrix = Matrix4x4.Perspective(fov, aspect, nearClip, farClip);
+                }
             }
 
             // Third row (Z) needs to be inverted when sending off to the Graphics API,

@@ -250,7 +250,7 @@ fixed4 frag (v2f i) : SV_Target
 			shadowDistances[3],
 			_ShadowFalloff);
 	#endif // RECEIVE_SHADOWS
-
+	
 	#if defined(NORMAL_ON)
 		fixed3 n = UnpackNormal(tex2D(_NormalTex, i.uv.xy));
 		n = NORMALIZE(n, SQUARED_DIST(n));
