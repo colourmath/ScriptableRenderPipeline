@@ -19,7 +19,7 @@ RenderSettings:
   m_FogMode: 2
   m_FogDensity: 0.01
   m_LinearFogStart: 5
-  m_LinearFogEnd: 45
+  m_LinearFogEnd: 55
   m_AmbientSkyColor: {r: 0.17475079, g: 0.19143823, b: 0.1981132, a: 1}
   m_AmbientEquatorColor: {r: 0.08851014, g: 0.10712725, b: 0.122641504, a: 1}
   m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
@@ -210,7 +210,7 @@ Light:
   m_SpotAngle: 30
   m_CookieSize: 10
   m_Shadows:
-    m_Type: 0
+    m_Type: 1
     m_Resolution: -1
     m_CustomResolution: -1
     m_Strength: 1
@@ -531,6 +531,10 @@ Prefab:
       propertyPath: m_Name
       value: Torus (1)
       objectReference: {fileID: 0}
+    - target: {fileID: 100000, guid: 1c587583f2af09343b94f74c7272eb98, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_ParentPrefab: {fileID: 100100000, guid: 1c587583f2af09343b94f74c7272eb98, type: 3}
   m_IsPrefabParent: 0
@@ -588,6 +592,10 @@ Prefab:
     - target: {fileID: 400000, guid: 1c587583f2af09343b94f74c7272eb98, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 36.372
+      objectReference: {fileID: 0}
+    - target: {fileID: 100000, guid: 1c587583f2af09343b94f74c7272eb98, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_ParentPrefab: {fileID: 100100000, guid: 1c587583f2af09343b94f74c7272eb98, type: 3}
@@ -710,7 +718,7 @@ Light:
   m_SpotAngle: 71.89424
   m_CookieSize: 10
   m_Shadows:
-    m_Type: 1
+    m_Type: 0
     m_Resolution: -1
     m_CustomResolution: -1
     m_Strength: 1
@@ -5821,7 +5829,7 @@ MonoBehaviour:
   ambientGround: {r: 0.047, g: 0.043, b: 0.035, a: 1}
   fogColor: {r: 0.42352945, g: 0.5254902, b: 0.68235296, a: 0}
   fogNearDistance: 5
-  fogFarDistance: 45
+  fogFarDistance: 55
 --- !u!4 &1554733523
 Transform:
   m_ObjectHideFlags: 0
