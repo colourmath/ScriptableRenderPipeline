@@ -105,12 +105,12 @@ namespace ColourMath.Rendering
             {
                 position = l.transform.position;
 
-                if(l.type == LightType.Point)
+                if (l.type == LightType.Point)
                 {
-                    forward = l.transform.forward;
+                    forward = Vector3.Normalize(r.transform.position-l.transform.position);
                     rotation = Quaternion.LookRotation(forward, Vector3.up);
                 }
-                else if(l.type == LightType.Spot)
+                else if (l.type == LightType.Spot)
                 {
                     forward = l.transform.forward;
                     rotation = l.transform.rotation;
@@ -176,15 +176,11 @@ namespace ColourMath.Rendering
             else
             {
                 if(l.type == LightType.Point)
-                {
                     fov = Vector3.Angle(max, min);
-                    projectionMatrix = Matrix4x4.Perspective(fov, aspect, nearClip, farClip);
-                }
                 else if(l.type == LightType.Spot)
-                {
                     fov = l.spotAngle;
-                    projectionMatrix = Matrix4x4.Perspective(fov, aspect, nearClip, farClip);
-                }
+
+                projectionMatrix = Matrix4x4.Perspective(fov, aspect, nearClip, farClip);
             }
 
             // Third row (Z) needs to be inverted when sending off to the Graphics API,
