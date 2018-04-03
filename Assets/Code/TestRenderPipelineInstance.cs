@@ -32,15 +32,6 @@ namespace ColourMath.Rendering
 {
     public class TestRenderPipelineInstance : RenderPipeline, IRenderPipeline
     {
-        /// <summary>
-        /// The way Lights will be filtered
-        /// </summary>
-        public enum LightMode
-        {
-            Dynamic, // Objects that will be dynamically lit
-            Mixed,   // 'Mixed' lights contribute specular if the light was baked, otherwise dynamic
-            Unlit    // No light information (i.e. particles)
-        }
 
         /// <summary>
         /// Sorts the Lights by type, then squared distance to Camera. 
@@ -67,11 +58,14 @@ namespace ColourMath.Rendering
             }
         }
 
-        readonly TestRenderPipeline settings;
+        readonly TestRenderPipeline pipelineSettings;
         readonly LightComparer lightcomparer;
 
-        RenderTextureDescriptor shadowMapDescriptor;
+        RenderTextureDescriptor framebufferDescriptor;
+        RenderTargetIdentifier framebufferID;
 
+        RenderTextureDescriptor shadowMapDescriptor;
+        
         Material shadowMaterial;
         RenderTexture shadowRT;
         RenderTargetIdentifier shadowRTID;
@@ -80,11 +74,11 @@ namespace ColourMath.Rendering
         public TestRenderPipelineInstance(TestRenderPipeline asset) : base()
         {
             lightcomparer = new LightComparer();
-            settings = asset;
+            pipelineSettings = asset;
 
             shadowMapDescriptor = new RenderTextureDescriptor(
-                settings.shadowMapSize,
-                settings.shadowMapSize,
+                pipelineSettings.shadowMapSize,
+                pipelineSettings.shadowMapSize,
                 RenderTextureFormat.RGHalf,
                 24)
             {
@@ -104,6 +98,17 @@ namespace ColourMath.Rendering
             tempRTID = new RenderTargetIdentifier(ShaderLib.Variables.Global.id_TempTex);
 
             shadowMaterial = new Material(ShaderLib.Shaders.DynamicShadow);
+
+            framebufferDescriptor = new RenderTextureDescriptor(
+                (int) (Screen.width * asset.renderScale),
+                (int) (Screen.height * asset.renderScale), 
+                RenderTextureFormat.Default, 
+                24);
+
+            ShaderLib.Variables.Global.id_TempFrameBuffer = 
+                Shader.PropertyToID(ShaderLib.Variables.Global.FRAMEBUFFER);
+            framebufferID = 
+                new RenderTargetIdentifier(ShaderLib.Variables.Global.id_TempFrameBuffer);
         }
 
         public override void Render(ScriptableRenderContext context, Camera[] cameras)
@@ -135,6 +140,9 @@ namespace ColourMath.Rendering
             FilterRenderersSettings filterSettings;
             DrawRendererSettings settings;
 
+            framebufferDescriptor.width = (int)(Screen.width * pipelineSettings.renderScale);
+            framebufferDescriptor.height = (int)(Screen.height * pipelineSettings.renderScale);
+
             foreach (Camera camera in cameras)
             {
                 lightcomparer.cameraPosition = camera.transform.position;
@@ -147,7 +155,6 @@ namespace ColourMath.Rendering
                 
                 Light shadowLight;
 
-
                 List<VisibleLight> visibleLights = cull.visibleLights;
                 SetupLightBuffers(
                     context, 
@@ -155,8 +162,8 @@ namespace ColourMath.Rendering
                     camera.worldToCameraMatrix,
                     out shadowLight);
 
-                shadowMapDescriptor.width = this.settings.shadowMapSize;
-                shadowMapDescriptor.height = this.settings.shadowMapSize;
+                shadowMapDescriptor.width = pipelineSettings.shadowMapSize;
+                shadowMapDescriptor.height = pipelineSettings.shadowMapSize;
 
                 // Shadow Pass
                 if(shadowLight != null)
@@ -166,10 +173,13 @@ namespace ColourMath.Rendering
                 // per-camera built-in shader variables).
                 context.SetupCameraProperties(camera);
 
-                // clear depth buffer
+                // clear frame buffer
                 cmd = CommandBufferPool.Get();
                     cmd.name = "Clear Framebuffer";
-                    cmd.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
+                    cmd.GetTemporaryRT(
+                        ShaderLib.Variables.Global.id_TempFrameBuffer, 
+                        framebufferDescriptor);
+                    cmd.SetRenderTarget(framebufferID);
                     cmd.ClearRenderTarget(true, false, Color.clear);
                     context.ExecuteCommandBuffer(cmd);
                 CommandBufferPool.Release(cmd);
@@ -251,6 +261,13 @@ namespace ColourMath.Rendering
                 settings.sorting.flags = SortFlags.CommonTransparent;
                 filterSettings.renderQueueRange = RenderQueueRange.transparent;
                 context.DrawRenderers(cull.visibleRenderers, ref settings, filterSettings);
+
+                // Final Blit
+                cmd = CommandBufferPool.Get();
+                cmd.name = "Blit Framebuffer";
+                cmd.Blit(framebufferID, BuiltinRenderTextureType.CameraTarget);
+                context.ExecuteCommandBuffer(cmd);
+                CommandBufferPool.Release(cmd);
 
                 context.Submit();
             }
@@ -357,7 +374,7 @@ namespace ColourMath.Rendering
             shadowLight = null;
             int shadowLightID = -1;
 
-            int maxLights = settings.maxLights;
+            int maxLights = pipelineSettings.maxLights;
             int lightCount = 0;
 
             // Prepare light data

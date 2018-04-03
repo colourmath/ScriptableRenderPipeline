@@ -88,6 +88,8 @@ namespace ColourMath.Rendering
                 public const string TEMP_TEX =          "_TempTex";
                 public static int id_TempTex;
 
+                public const string FRAMEBUFFER =       "__TempFrameBuffer";
+                public static int id_TempFrameBuffer;
             }
             
             public static class Renderer
