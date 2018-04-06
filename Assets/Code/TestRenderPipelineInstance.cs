@@ -180,7 +180,7 @@ namespace ColourMath.Rendering
                         ShaderLib.Variables.Global.id_TempFrameBuffer, 
                         framebufferDescriptor);
                     cmd.SetRenderTarget(framebufferID);
-                    cmd.ClearRenderTarget(true, false, Color.clear);
+                    cmd.ClearRenderTarget(true, true, Color.clear);
                     context.ExecuteCommandBuffer(cmd);
                 CommandBufferPool.Release(cmd);
 

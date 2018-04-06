@@ -122,6 +122,10 @@ v2f vert (a2v v)
 		float3 viewNormal =		mul(UNITY_MATRIX_IT_MV, normal).xyz;
 		float3 viewBitan =		cross(viewNormal, viewTangent) * v.tangent.w;
 
+		viewTangent =			NORMALIZE(viewTangent,SQUARED_DIST(viewTangent));
+		viewNormal =			NORMALIZE(viewNormal,SQUARED_DIST(viewNormal));
+		viewBitan =				NORMALIZE(viewBitan,SQUARED_DIST(viewBitan));
+
 		float3x3 tbn = float3x3(viewTangent, viewBitan, viewNormal);
 
 		half4 lighting0 = 0;
