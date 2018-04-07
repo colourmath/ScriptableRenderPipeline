@@ -48,5 +48,20 @@ namespace ColourMath.Rendering
         {
             return new TestRenderPipelineInstance(this);
         }
+
+        // New Materials will use this Shader automatically
+        public override Shader GetDefaultShader()
+        {
+            return ShaderLib.Shaders.SafeFind(ShaderLib.Shaders.BASIC);
+        }
+
+        static Material defaultParticleMaterial;
+        public override Material GetDefaultParticleMaterial()
+        {
+            if(defaultParticleMaterial == null)
+                defaultParticleMaterial = new Material(ShaderLib.Shaders.SafeFind(ShaderLib.Shaders.TRANSPARENT));
+
+            return defaultParticleMaterial;
+        }
     }
 }

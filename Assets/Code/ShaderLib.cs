@@ -43,6 +43,10 @@ namespace ColourMath.Rendering
                     Debug.LogWarningFormat("Couldn't locate Shader. '{0}'.");
                 return shader;
             }
+
+            public const string BASIC =         "ColourMath/Basic";
+            public const string TRANSPARENT =   "ColourMath/Transparent";
+
         }
 
         public static class RenderLayers

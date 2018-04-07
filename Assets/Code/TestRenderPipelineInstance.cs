@@ -260,6 +260,7 @@ namespace ColourMath.Rendering
                     ShaderLib.Passes.Transparent);
                 settings.sorting.flags = SortFlags.CommonTransparent;
                 filterSettings.renderQueueRange = RenderQueueRange.transparent;
+                filterSettings.renderingLayerMask = ShaderLib.RenderLayers.Everything;
                 context.DrawRenderers(cull.visibleRenderers, ref settings, filterSettings);
 
                 // Final Blit
